@@ -1,0 +1,48 @@
+# depslib dependency file v1.0
+1404797308 source:/home/randoms/Git/burst-link/burst_link/client.c
+	<stdio.h>
+	<stdlib.h>
+	<unistd.h>
+	<string.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<netdb.h>
+
+1404806781 source:/home/randoms/Git/burst-link/burst_link/handler.c
+
+1404871309 source:/home/randoms/Git/burst-link/burst_link/route.c
+	<jansson.h>
+	"handler.h"
+	"route.h"
+
+1404868625 /home/randoms/Git/burst-link/burst_link/handler.h
+
+1404868612 /home/randoms/Git/burst-link/burst_link/route.h
+
+1404869027 source:/home/randoms/Git/burst-link/burst_link/server.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<unistd.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<signal.h>
+	"route.h"
+
+1404806584 source:/home/randoms/Git/burst-link/burst_link/testjson.c
+	<string.h>
+	<jansson.h>
+
+1404872053 source:/home/randoms/Git/burst-link/burst_link/main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<unistd.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<signal.h>
+	"route.h"
+
