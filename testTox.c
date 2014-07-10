@@ -1,26 +1,3 @@
-/* nTox.c
- *
- * Textual frontend for Tox.
- *
- *  Copyright (C) 2013 Tox project All Rights Reserved.
- *
- *  This file is part of Tox.
- *
- *  Tox is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  Tox is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Tox.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +11,14 @@
 
 #include "toxcore/tox.h"
 #include "utils/utils.c"
+
+#include "route.h"
+
+
+#define BOOTSTRAP_ADDRESS "42.96.195.88"
+#define BOOTSTRAP_PORT 33445
+#define BOOTSTRAP_KEY "7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25"
+
 
 #define FRADDR_TOSTR_CHUNK_LEN 8
 #define FRADDR_TOSTR_BUFSIZE (TOX_FRIEND_ADDRESS_SIZE * 2 + TOX_FRIEND_ADDRESS_SIZE / FRADDR_TOSTR_CHUNK_LEN + 1)
@@ -72,62 +57,53 @@ void get_id(Tox *m, char *data)
     fraddr_to_str(address, data + offset);
 }
 
-int main(int argc, char *argv[])
-{
-
-    
-    char idstring[200] = {0};
+int main(){
+    uint8_t ipv6enabled = 0;
+    int on = 0;
+//     char idstring[200] = {0};
     Tox *m;
-
-    m = tox_new(0);
-
+    m = tox_new(ipv6enabled);
     if ( !m ) {
         fputs("Failed to allocate Messenger datastructure", stderr);
         exit(0);
     }
-
-//     tox_callback_friend_request(m, print_request, NULL);
-//     tox_callback_friend_message(m, print_message, NULL);
-//     tox_callback_name_change(m, print_nickchange, NULL);
-//     tox_callback_status_message(m, print_statuschange, NULL);
-//     tox_callback_group_invite(m, print_invite, NULL);
-//     tox_callback_group_message(m, print_groupmessage, NULL);
-//     tox_callback_file_data(m, write_file, NULL);
-//     tox_callback_file_control(m, file_print_control, NULL);
-//     tox_callback_file_send_request(m, file_request_accept, NULL);
-//     tox_callback_group_namelist_change(m, print_groupnamelistchange, NULL);
-
-    get_id(m, idstring);
-    printf("%s",idstring);
-    printf("\n");
-
-    uint16_t port = 33445;
+//     get_id(m, idstring);
     unsigned char *binary_string = hex_string_to_bin("7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25");
-    int res = tox_bootstrap_from_address(m, "42.96.195.88", 0, port, binary_string);
+    int res = tox_bootstrap_from_address(m, "42.96.195.88", 0, htons(33445), binary_string);
     free(binary_string);
 
     if (!res) {
-        printf("Failed to convert into an IP address. Exiting...\n");
+        //printf("Failed to convert \"%s\" into an IP address. Exiting...\n", argv[argvoffset + 1]);
+        printf("error\n");
+//         endwin();
         exit(1);
     }
-
+    uint8_t name[TOX_MAX_NAME_LENGTH + 1];
+    uint16_t namelen = tox_get_self_name(m, name);
+    name[namelen] = 0;
+    if (namelen > 0) {
+        char whoami[128 + TOX_MAX_NAME_LENGTH];
+        snprintf(whoami, sizeof(whoami), "[i] your current username is: %s", name);
+    }
     time_t timestamp0 = time(NULL);
-    int on = 0;
     while (1) {
         if (on == 0) {
             if (tox_isconnected(m)) {
-                printf("[i] connected to DHT\n");
+                printf("hello\n");
                 on = 1;
             } else {
                 time_t timestamp1 = time(NULL);
-
                 if (timestamp0 + 10 < timestamp1) {
                     timestamp0 = timestamp1;
-                    tox_bootstrap_from_address(m, "42.96.195.88", 0, port, binary_string);
+                    //tox_bootstrap_from_address(m, argv[argvoffset + 1], ipv6enabled, port, binary_string);
+                    tox_bootstrap_from_address(m, "42.96.195.88", 0, htons(33445), binary_string);
                 }
             }
-        }else{
-            return 0;
         }
-    }
+        
+//         tox_do(m);
+        }
+
+//     tox_kill(m);
+    return 0;
 }

@@ -104,8 +104,10 @@ static Tox *init_tox(int ipv4)
 
 int init_connection(Tox *m)
 {
-    uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
-    int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
+    //uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
+    //int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
+    unsigned char *binary_string = hex_string_to_bin("7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25");
+    int res = tox_bootstrap_from_address(m, "42.96.195.88", 0, htons(33445), binary_string);
     if (!res) {
         printf("Failed to convert into an IP address. Exiting...\n");
         exit(1);
@@ -134,6 +136,7 @@ int main(int argc, char *argv[])
                 
             }
         }
+        tox_do(my_tox);
     }
     
     int sockfd, newsockfd, portno,pid;
@@ -169,7 +172,7 @@ int main(int argc, char *argv[])
             error("fork error");
         }
         if(pid == 0){
-            process_req(newsockfd,my_tox);
+            process_req(newsockfd);
             close(newsockfd);
             exit(0);
         }else{
@@ -182,7 +185,7 @@ int main(int argc, char *argv[])
 }
 
 
-void process_req(int sock, Tox *m){
+void process_req(int sock){
     int n;
     char buffer[1024];
         
