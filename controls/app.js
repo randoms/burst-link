@@ -17,6 +17,7 @@ var net = require('net');
 var local_tox_port = 9990
 var localhost = '127.0.0.1'
 var async = require('async');
+var uuid = require('node-uuid');
 
 function sendMessage(msg,cb){
     var res = "";
@@ -53,7 +54,10 @@ function init(remote_tox_id,cb){
             }
             
             sendMessage(JSON.stringify(cmd,null,4),function(res){
-                if(res.status != "OK"){
+                console.log("RES:"+res);
+                res = JSON.parse(res);
+                if(res.retcode == 102){
+                    // add friend failed
                     var err = {
                         status:'ERROR',
                         description:res.description,
@@ -61,6 +65,9 @@ function init(remote_tox_id,cb){
                     console.log(JSON.stringify(err,null,4));
                     console.log(res);
                     process.exit(1);
+                }else if(res.retcode == 104){
+                    // friend req has send
+                    console.log("Connecting ...");
                 }
                 console.log("ADD_FRIEND:SUCCESS");
                 callback(null,res)
@@ -73,7 +80,8 @@ function init(remote_tox_id,cb){
     
     
     async.series(tastList,function(res){
-        console.log(res);
+        console.log("INIT:COMPLETE");
+        cb();
     })
     
     /**
@@ -94,7 +102,7 @@ function init(remote_tox_id,cb){
 }
 
 
-function listenLocal(local_port){
+function listenLocal(local_port,remote_tox_id){
     
     var client = new net.Socket();
     var sock = "";
@@ -109,8 +117,51 @@ function listenLocal(local_port){
 
             sock.on('data', function(data) {
                 console.log('DATA ' + sock.remoteAddress + ': ' + data);
-                // 把接收的数据发送给toxcore
-                client.write(data);
+                // 加工收到的数据，如果太大就进行分包处理
+                /**
+                 * 封包格式
+                 * var cmd = {
+                 *   'type':'REQ',
+                 *   'mode':'SERVER',
+                 *   'cmd':'SEND_MESSAGE',
+                 *   'from':'LOCALHOST',
+                 *   'remoteID':remote_tox_id,
+                 *   'packID':uuid,
+                 *   'total':total package num,
+                 *   'order':the order of currnet package
+                 * }
+                 */
+                var max_pack_size = 1024;
+                var total = parseInt(data.length/max_pack_size)+1;
+                var packArray = [];
+                var packID = uuid.v1();
+                for(var count = 0;count<total;count++){
+                    packArray[count] = [];
+                    var packSize = 0;
+                    if(count == total -1){
+                        packSize = data.length%max_pack_size;
+                    }else{
+                        packSize = max_pack_size;
+                    }
+                    for(var i = 0;i<packSize;i++){
+                        packArray[count][i] = data[count*max_pack_size+i];
+                    }
+                    var req = {
+                        type:'REQ',
+                        mode:'SERVER',
+                        cmd:'SEND_MESSAGE',
+                        from:'LOCALHOST',
+                        remoteID:remote_tox_id,
+                        packID:packID,
+                        total:total,
+                        order:count,
+                        msg:packArray[count],
+                    }
+                    // 把接收的数据发送给toxcore
+                    console.log(req);
+                    client.write(JSON.stringify(req,null,4));
+                }
+                console.log(data.length);
             });
 
             sock.on('close', function(data) {
@@ -137,13 +188,12 @@ function listenLocal(local_port){
 
 function connect(remote_tox_id,local_port,remote_port){
     
-    init(remote_tox_id,function(data){
-        console.log(data);
-        listenLocal(local_port);
+    init(remote_tox_id,function(){
+        listenLocal(local_port,"341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4");
     })
 
 
     
 }
 
-connect("",9992,50001)
+connect("341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4",9992,50001)

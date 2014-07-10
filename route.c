@@ -1,5 +1,3 @@
-#include <jansson.h>
-#include "handler.h"
 #include "route.h"
 /**
  * 请求的格式
@@ -27,7 +25,7 @@ var cmd = {
 
 
 
-void route(const char *cmds){
+void route(const char * cmds, Tox *m, int sock){
     json_t *cmd_json;
     json_error_t error;
     const char *type;
@@ -40,6 +38,7 @@ void route(const char *cmds){
     const char *STATIC_MODE_SERVER = "SERVER";
     const char *STATIC_MODE_CLIENT = "CLIENT";
     const char *STATIC_CMD_ADD_FRIEND = "ADD_FRIEND";
+    const char *STATIC_CMD_SEND_MESSAGE = "SEND_MESSAGE";
     const char *STATIC_FROM_LOCALHOST = "LOCALHOST";
     const char *STATIC_FROM_REMOTE = "REMOTE";
     
@@ -62,7 +61,12 @@ void route(const char *cmds){
         
         if(strcmp(type,STATIC_TYPE_REQ) == 0 && strcmp(from,STATIC_FROM_LOCALHOST) == 0){
             // req from localhost
-            int add_res = friend_add(remoteID);
+            if(strcmp(cmd,STATIC_CMD_ADD_FRIEND) == 0)
+                mtox_friend_add(m,remoteID,sock);
+            else if(strcmp(cmd,STATIC_CMD_SEND_MESSAGE) == 0){
+                json_t *msg = json_object_get(cmd_json,"msg");
+                mtox_send_message(m,remoteID,sock,msg);
+            }
         }
     }
     json_decref(cmd_json);

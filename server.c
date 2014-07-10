@@ -15,24 +15,24 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "toxcore/tox.h"
 #include "utils/utils.c"
-
+#include "queue.h"
 #include "route.h"
 
 
 #define BOOTSTRAP_ADDRESS "42.96.195.88"
 #define BOOTSTRAP_PORT 33445
 #define BOOTSTRAP_KEY "7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25"
+#define MAX_MSG_CACHE 128
 /*
 #define BOOTSTRAP_ADDRESS "109.169.46.133"
 #define BOOTSTRAP_PORT 33445
 #define BOOTSTRAP_KEY "7F31BFC93B8E4016A902144D0B110C3EA97CB7D43F1C4D21BCAE998A7C838821"
 */
 #define MY_NAME "BurstLink"
-
-void process_req(int sock);
 
 void error(const char *msg)
 {
@@ -49,6 +49,7 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
 }
 
 void friend_message(Tox *messenger, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
+    printf("MESSAGE:%s\n",string);
 }
 
 void write_file(Tox *messenger, int32_t friendnumber, uint8_t filenumber,const uint8_t *data, uint16_t length, void *userdata) {
@@ -104,22 +105,26 @@ static Tox *init_tox(int ipv4)
 
 int init_connection(Tox *m)
 {
-    //uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
-    //int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
-    unsigned char *binary_string = hex_string_to_bin("7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25");
-    int res = tox_bootstrap_from_address(m, "42.96.195.88", 0, htons(33445), binary_string);
+    uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
+    int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
     if (!res) {
         printf("Failed to convert into an IP address. Exiting...\n");
         exit(1);
     }
-    printf("%d\n",res);
 }
 
-int main(int argc, char *argv[])
-{
-    Tox *my_tox = init_tox(0);
-    init_connection(my_tox);
-    
+
+/**
+ * Globals
+ */
+Tox *my_tox;
+uint8_t msg_task_flag;
+uint8_t msg_rec_flag;
+Queue *msg_task_queue; // 消息处队列
+Queue *msg_rec_queue;
+
+void *tox_works(){
+    // do tox loop
     time_t timestamp0 = time(NULL);
     int on = 0;
     while (1) {
@@ -137,8 +142,67 @@ int main(int argc, char *argv[])
             }
         }
         tox_do(my_tox);
+        if(msg_task_queue->size != 0 && msg_task_flag == 0){
+            printf("processing\n");
+            msg_task_flag = 1;
+            MSGTask *mTask = front(msg_task_queue); // 开始处理
+            route(mTask->msg,my_tox,mTask->sock);
+            close(mTask->sock);
+            Dequeue(msg_task_queue);
+            msg_task_flag = 0;
+        }else{
+            usleep(40000);
+        }
     }
-    
+}
+
+void *process_sock(void *ptr){
+    int sock = *((int *)ptr);
+    int n;
+    uint8_t buffer[2048];
+    bzero(buffer,2048);
+    n = read(sock,buffer,2048);
+    if (n < 0) error("ERROR reading from socket");
+    printf("Message Received:\n %s\n",buffer);
+    MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
+    newTask->sock = sock;
+    newTask->msg = buffer;
+    do{
+        while(msg_task_queue->size >= MAX_MSG_CACHE); // wait for cache space
+    }while(msg_task_flag == 1);
+    // enter queue
+    msg_task_flag = 1;
+    Enqueue(msg_task_queue,newTask);
+    msg_task_flag = 0;
+    // free space
+    free(newTask);
+}
+
+
+void intHandler(int dummy) {
+    store_data(my_tox);
+    printf("EXITING...\n");
+    exit(EXIT_SUCCESS);
+}
+
+
+int main(int argc, char *argv[])
+{
+    // 添加系统事件监听
+    signal(SIGINT, intHandler);
+    my_tox = init_tox(0);
+    init_connection(my_tox);
+    load_data(my_tox);
+    msg_task_flag = 0; // 1 when msg is not available
+    msg_rec_flag = 0; // 1 when rec_queue is not available
+    msg_task_queue = createQueue(MAX_MSG_CACHE); // 远程操作消息队列
+    msg_rec_queue = createQueue(MAX_MSG_CACHE); // 本地操作消息队列
+    pthread_t tox_thread;
+    int iret1 = pthread_create( &tox_thread, NULL, tox_works,NULL);
+    if(iret1){
+        printf("Create tox thread failed.\n");
+        exit(EXIT_FAILURE);
+    }
     int sockfd, newsockfd, portno,pid;
     socklen_t clilen;
     char buffer[256];
@@ -167,34 +231,14 @@ int main(int argc, char *argv[])
               &clilen);
         if (newsockfd < 0) 
             error("ERROR on accept");
-        pid = fork();
-        if(pid < 0){
-            error("fork error");
+        
+        pthread_t *sock_thread = (pthread_t *)malloc(sizeof(pthread_t));
+        int iret2 = pthread_create( sock_thread, NULL, process_sock,(void*)(&newsockfd));
+        if(iret2){
+            printf("Create Socket thread failed.\n");
         }
-        if(pid == 0){
-            process_req(newsockfd);
-            close(newsockfd);
-            exit(0);
-        }else{
-            close(newsockfd);
-        }
-        tox_do(my_tox);
+        // this may led to memory leak
     }
     close(sockfd);
     return 0; 
-}
-
-
-void process_req(int sock){
-    int n;
-    char buffer[1024];
-        
-    bzero(buffer,1024);
-    n = read(sock,buffer,1023);
-    if (n < 0) error("ERROR reading from socket");
-    printf("Message Received:\n %s\n",buffer);
-    route(buffer);
-    printf("Run here");
-    n = write(sock,"I got your message",18);
-    if (n < 0) error("ERROR writing to socket");
 }

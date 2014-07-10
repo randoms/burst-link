@@ -1,0 +1,14 @@
+return code
+100 friend related
+    101 add friend success
+    102 add friend failed
+    103 already friend
+    104 friend req has send, wait to accept
+200 message related
+    201 send message success
+    202 target is not friend
+    203 send message failed
+    
+    
+分包过程
+    这个信息传输应该是序列化的，所以只要在每个包上加一个id就行了，就用uuid

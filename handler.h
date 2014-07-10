@@ -1,29 +1,36 @@
-#define SLEEP_TIME 50000
-#define BOOTSTRAP_ADDRESS "23.226.230.47"
-#define BOOTSTRAP_PORT 33445
-#define BOOTSTRAP_KEY "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <time.h>
 
-#define MY_NAME "ImoutoBot"
-
+#include <jansson.h>
+#include "toxcore/tox.h"
+#include "utils/utils.h"
 /**
  * call this when new message arrives
  */
-void on_message(char *msg);
+void mtox_on_message(char *msg);
 
 
 /**
  * call this when want to send message
  */
-void send_message(char *msg);
+int mtox_send_message(Tox *m, const char *friendID, int sock,json_t *message);
 
 /**
  * call to connect to server
  */
-void connect(char *target_info);
+void mtox_connect(char *target_info);
 
 
 /**
  * call to add a friend
  */
-int friend_add(const char *friendID);
-int friend_accept(char *friendID);
+int mtox_friend_add(Tox *m, const char *friendID, int sock);
+int mtox_friend_accept(Tox *m, const char *friendID,int sock);
