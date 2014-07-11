@@ -37,6 +37,76 @@ function sendMessage(msg,cb){
     });
 }
 
+function addFriend(remote_tox_id,cb){
+    var cmd = {
+        'type':'REQ',
+        'mode':'SERVER',
+        'cmd':'ADD_FRIEND',
+        'from':'LOCALHOST',
+        'remoteID':remote_tox_id,
+    }
+    
+    sendMessage(JSON.stringify(cmd,null,4),function(res){
+        console.log("RES:"+res);
+        res = JSON.parse(res);
+        if(res.retcode == 102){
+            // add friend failed
+            var err = {
+                status:'ERROR',
+                description:res.description,
+            }
+            console.log(JSON.stringify(err,null,4));
+            console.log(res);
+            process.exit(1);
+        }else if(res.retcode == 104){
+            // friend req has send
+            console.log("Connecting ...");
+        }
+        console.log("ADD_FRIEND:SUCCESS");
+        cb();
+    })
+}
+
+
+function sendHandshake(remote_tox_id,cb){
+    var req = {
+        type:'REQ',
+        mode:'SERVER',
+        cmd:'SEND_MESSAGE',
+        from:'LOCALHOST',
+        remoteID:remote_tox_id,
+        msg:{
+            packID:"0",
+            total:"1",
+            order:"0",
+            package:[],
+        },
+    }
+    
+    var reconnectCount = 0;
+    
+    var handshake = function(){
+        sendMessage(JSON.stringify(req,null,4),function(res){
+            console.log("RES:"+res);
+            res = JSON.parse(res);
+            if(res.retcode == 204){
+                // target is offline
+                reconnectCount ++;
+                if(reconnectCount >5){
+                    console.log("target is offline");
+                    process.exit(1);
+                }
+                setTimeout(handshake,1000); // try reconnect
+            }else if(res.retcode == 203){
+                console.log("HANDSHAKE:Send message failed");
+                process.exit(0);
+            }else if(res.retcode == 201){
+                cb();
+            }
+        })
+    }
+    handshake();
+}
 
 function init(remote_tox_id,cb){
     console.log("init burst link ...");
@@ -44,37 +114,15 @@ function init(remote_tox_id,cb){
     var tastList = [
         // 加好友
         function(callback){
-            
-            var cmd = {
-                'type':'REQ',
-                'mode':'SERVER',
-                'cmd':'ADD_FRIEND',
-                'from':'LOCALHOST',
-                'remoteID':remote_tox_id,
-            }
-            
-            sendMessage(JSON.stringify(cmd,null,4),function(res){
-                console.log("RES:"+res);
-                res = JSON.parse(res);
-                if(res.retcode == 102){
-                    // add friend failed
-                    var err = {
-                        status:'ERROR',
-                        description:res.description,
-                    }
-                    console.log(JSON.stringify(err,null,4));
-                    console.log(res);
-                    process.exit(1);
-                }else if(res.retcode == 104){
-                    // friend req has send
-                    console.log("Connecting ...");
-                }
-                console.log("ADD_FRIEND:SUCCESS");
-                callback(null,res)
+            addFriend(remote_tox_id,function(){
+                callback(null,0);
             })
         },
         function(callback){
-            callback(null,0);
+            console.log("here");
+            sendHandshake(remote_tox_id,function(){
+                callback(null,0);
+            })
         }
     ]
     
@@ -152,10 +200,12 @@ function listenLocal(local_port,remote_tox_id){
                         cmd:'SEND_MESSAGE',
                         from:'LOCALHOST',
                         remoteID:remote_tox_id,
-                        packID:packID,
-                        total:total,
-                        order:count,
-                        msg:packArray[count],
+                        msg:{
+                            packID:packID,
+                            total:total,
+                            order:count,
+                            package:packArray[count],
+                        },
                     }
                     // 把接收的数据发送给toxcore
                     console.log(req);

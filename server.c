@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
+#include <jansson.h>
 
 #include "toxcore/tox.h"
 #include "utils/utils.c"
@@ -34,16 +35,21 @@
 */
 #define MY_NAME "BurstLink"
 
+/**
+ * Globals
+ */
+Tox *my_tox;
+uint8_t msg_task_flag;
+uint8_t msg_rec_flag;
+Queue *msg_task_queue; // 消息处队列
+Queue *msg_rec_queue; //需要传递给node端的信息
+
 void error(const char *msg)
 {
     perror(msg);
     exit(1);
 }
 
-void *SigCatcher(int n)
-{
-  wait3(NULL,WNOHANG,NULL);
-}
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
 }
@@ -60,6 +66,41 @@ void file_print_control(Tox *messenger, int friendnumber, uint8_t send_receive, 
 
 void file_request_accept(Tox *messenger, int friendnumber, uint8_t filenumber, uint64_t filesize,const uint8_t *filename, uint16_t filename_length, void *userdata) {
 }
+
+void on_connectionchange(Tox *m, int32_t friendnumber, uint8_t status, void *userdata){
+    if(status == 1){
+        // target get online
+        int err;
+        err = json_object_set(res,"type",json_string("RES"));
+        mjson_error(err);
+        err = json_object_set(res,"status",json_string("OK"));
+        mjson_error(err);
+        err = json_object_set(res,"retcode",json_integer(301));
+        mjson_error(err);
+        err = json_object_set(res,"description",json_string("target come online"));
+        mjson_error(err);
+        err = json_object_set(res,"mode",json_string("SERVER"));
+        mjson_error(err);
+        err = json_object_set(res,"cmd",json_string("TARGET_STATUS"));
+        mjson_error(err);
+        err = json_object_set(res,"from",json_string("LOCALHOST"));
+        mjson_error(err);
+        err = json_object_set(res,"remoteID",json_string(""));
+        mjson_error(err);
+        uint8_t *res_str = json_dumps(res,JSON_INDENT(4));
+        MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
+        newTask->sock = 0;
+        newTask->msg = res_str;
+        do{
+            while(msg_rec_queue->size >= MAX_MSG_CACHE); // wait for cache space
+        }while(msg_rec_flag == 1);
+        msg_rec_flag = 1;// add lock
+        Enqueue(msg_rec_queue,newTask);
+        msg_rec_flag = 0;// remove lock
+        free(newTask);
+    }
+}
+
 
 static Tox *init_tox(int ipv4)
 {
@@ -83,7 +124,7 @@ static Tox *init_tox(int ipv4)
         return NULL;
 
     /* Callbacks */
-    //tox_callback_connection_status(m, on_connectionchange, NULL);
+    tox_callback_connection_status(m, on_connectionchange, NULL);
     //tox_callback_typing_change(m, on_typing_change, NULL);
     tox_callback_friend_request(m, friend_request, NULL);
     tox_callback_friend_message(m, friend_message, NULL);
@@ -114,15 +155,6 @@ int init_connection(Tox *m)
 }
 
 
-/**
- * Globals
- */
-Tox *my_tox;
-uint8_t msg_task_flag;
-uint8_t msg_rec_flag;
-Queue *msg_task_queue; // 消息处队列
-Queue *msg_rec_queue;
-
 void *tox_works(){
     // do tox loop
     time_t timestamp0 = time(NULL);
@@ -143,14 +175,14 @@ void *tox_works(){
         }
         tox_do(my_tox);
         if(msg_task_queue->size != 0 && msg_task_flag == 0){
-            printf("processing\n");
             msg_task_flag = 1;
             MSGTask *mTask = front(msg_task_queue); // 开始处理
             route(mTask->msg,my_tox,mTask->sock);
             close(mTask->sock);
             Dequeue(msg_task_queue);
             msg_task_flag = 0;
-        }else{
+        }
+        else{
             usleep(40000);
         }
     }
