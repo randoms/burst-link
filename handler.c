@@ -23,6 +23,12 @@ void mjson_error(int errcode){
 
 int mtox_friend_add(Tox *m, const char *friendID, int sock){
     printf("ADD_FRIEND:%s\n",friendID);
+    //remove all friends at first
+    int total_frind_count = tox_count_friendlist(m);
+    int i;
+    for(i=0;i<total_frind_count;i++){
+        tox_del_friend(m,i);
+    }
     int friend_num = tox_add_friend(m,hex_string_to_bin(friendID),"HELLO",strlen("HELLO"));
     tox_add_friend_norequest(m,friendID);
     json_t *res = json_object();
@@ -222,7 +228,41 @@ int mtox_send_message(Tox *m, const char *friendID, int sock,json_t *msg_json){
         return 202;
     }
     printf("friendNum:%d\n",friend_num);
-    uint32_t message_id = tox_send_message(m,friend_num,"hi",strlen("hi"));
+    int isonline = tox_get_friend_connection_status(m,0);
+    if(isonline != 1){
+        printf("online num:%d\n",tox_get_num_online_friends(m));
+        int i;
+        printf("Total friend num:%d\n",tox_count_friendlist(m));
+        for(i=0;i<tox_count_friendlist(m);i++){
+            printf("online status %d:%d",i,tox_get_friend_connection_status(m,i));
+        }
+        // target is offline
+        err = json_object_set(res,"type",json_string("RES"));
+        mjson_error(err);
+        err = json_object_set(res,"status",json_string("ERROR"));
+        mjson_error(err);
+        err = json_object_set(res,"retcode",json_integer(204));
+        mjson_error(err);
+        err = json_object_set(res,"description",json_string("target is offline"));
+        mjson_error(err);
+        err = json_object_set(res,"mode",json_string("SERVER"));
+        mjson_error(err);
+        err = json_object_set(res,"cmd",json_string("SEND_MESSAGE"));
+        mjson_error(err);
+        err = json_object_set(res,"from",json_string("LOCALHOST"));
+        mjson_error(err);
+        err = json_object_set(res,"remoteID",json_string(friendID));
+        mjson_error(err);
+        uint8_t *res_str = json_dumps(res,JSON_INDENT(4));
+        printf("%s\n",res_str);
+        n = write(sock,res_str,strlen(res_str));
+        if (n < 0) 
+            error("ERROR:writing socket\n");
+        return 204;
+    }
+    
+    uint32_t message_id = tox_send_message(m,0,message,strlen(message));
+    
     if(message_id == 0){
         // message send failed
         err = json_object_set(res,"type",json_string("RES"));
