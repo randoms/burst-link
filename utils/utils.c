@@ -1,17 +1,13 @@
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
-#include <time.h>
-#include <limits.h>
-#include "../toxcore/tox.h"
+#include "utils.h"
 
 char *hex_string_to_bin(const char *hex_string)
 {
     size_t len = strlen(hex_string);
     char *val = malloc(len);
 
-    if (val == NULL)
-       printf("transform failed");
+    if (val == NULL){
+        printf("transform failed");
+    }
 
     size_t i;
 
@@ -19,6 +15,44 @@ char *hex_string_to_bin(const char *hex_string)
         sscanf(hex_string, "%2hhx", &val[i]);
 
     return val;
+}
+
+void fraddr_to_str(uint8_t *id_bin, char *id_str)
+{
+    uint32_t i, delta = 0, pos_extra, sum_extra = 0;
+
+    for (i = 0; i < TOX_FRIEND_ADDRESS_SIZE; i++) {
+        sprintf(&id_str[2 * i + delta], "%02hhX", id_bin[i]);
+
+        if ((i + 1) == TOX_CLIENT_ID_SIZE)
+            pos_extra = 2 * (i + 1) + delta;
+
+        if (i >= TOX_CLIENT_ID_SIZE)
+            sum_extra |= id_bin[i];
+
+        if (!((i + 1) % FRADDR_TOSTR_CHUNK_LEN)) {
+            id_str[2 * (i + 1) + delta] = ' ';
+            delta++;
+        }
+    }
+
+    id_str[2 * i + delta] = 0;
+
+    if (!sum_extra)
+        id_str[pos_extra] = 0;
+}
+
+void hexid_to_str(uint8_t *id_bin, uint8_t *id_str){
+    uint8_t length = TOX_FRIEND_ADDRESS_SIZE;
+    uint8_t i = 0;
+    uint8_t *temp_str;
+    printf("called\n");
+    for(i = 0; i<length;i++){
+        printf(temp_str,"%X",id_bin[i]);
+        //sprintf(temp_str,"%X",id_bin[i]);
+        //id_str[i] = temp_str[0];
+        //id_str[i+1] = temp_str[1];
+    }
 }
 
 static uint64_t current_unix_time;
@@ -86,7 +120,7 @@ int store_data(Tox *m)
     return 0;
 }
 
-static void load_data(Tox *m)
+void load_data(Tox *m)
 {
     char cwd[1024];
     char *path = getcwd(cwd, sizeof(cwd));

@@ -4,37 +4,7 @@
 /**
  * server 主要进行请求的分发，接收到新的请求就把请求分发给route，
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <time.h>
-#include <pthread.h>
-#include <jansson.h>
-
-#include "toxcore/tox.h"
-#include "utils/utils.c"
-#include "queue.h"
-#include "route.h"
-
-
-#define BOOTSTRAP_ADDRESS "42.96.195.88"
-#define BOOTSTRAP_PORT 33445
-#define BOOTSTRAP_KEY "7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25"
-#define MAX_MSG_CACHE 128
-/*
-#define BOOTSTRAP_ADDRESS "109.169.46.133"
-#define BOOTSTRAP_PORT 33445
-#define BOOTSTRAP_KEY "7F31BFC93B8E4016A902144D0B110C3EA97CB7D43F1C4D21BCAE998A7C838821"
-*/
-#define MY_NAME "BurstLink"
-
+#include "server.h"
 /**
  * Globals
  */
@@ -43,6 +13,7 @@ uint8_t msg_task_flag;
 uint8_t msg_rec_flag;
 Queue *msg_task_queue; // 消息处队列
 Queue *msg_rec_queue; //需要传递给node端的信息
+Msg_listener_list *msg_listener_list = NULL;
 
 void error(const char *msg)
 {
@@ -52,10 +23,27 @@ void error(const char *msg)
 
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
+    //接受請求
+    printf("req received\n");
+    accept_connect(my_tox,public_key,msg_listener_list);
 }
 
 void friend_message(Tox *messenger, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
     printf("MESSAGE:%s\n",string);
+    uint8_t id[TOX_FRIEND_ADDRESS_SIZE];
+    char id_str[TOX_FRIEND_ADDRESS_SIZE];
+//     uint8_t fraddr_bin[TOX_FRIEND_ADDRESS_SIZE];
+//     char fraddr_str[FRADDR_TOSTR_BUFSIZE];
+    tox_get_client_id(my_tox,friendnumber,id);
+    //fraddr_to_str(fraddr_bin, fraddr_str);
+    //printf("ID:%s\n",fraddr_str);
+    hexid_to_str(id,id_str);
+    //printf("ID:%s\n",id_str);
+    // 添加消息觸發器
+    //trigger_msg_listener(msg_listener_list,string,id);
+    // 添加消息隊列消息
+    
+    
 }
 
 void write_file(Tox *messenger, int32_t friendnumber, uint8_t filenumber,const uint8_t *data, uint16_t length, void *userdata) {
@@ -68,60 +56,21 @@ void file_request_accept(Tox *messenger, int friendnumber, uint8_t filenumber, u
 }
 
 void on_connectionchange(Tox *m, int32_t friendnumber, uint8_t status, void *userdata){
-    if(status == 1){
-        // target get online
-        int err;
-        err = json_object_set(res,"type",json_string("RES"));
-        mjson_error(err);
-        err = json_object_set(res,"status",json_string("OK"));
-        mjson_error(err);
-        err = json_object_set(res,"retcode",json_integer(301));
-        mjson_error(err);
-        err = json_object_set(res,"description",json_string("target come online"));
-        mjson_error(err);
-        err = json_object_set(res,"mode",json_string("SERVER"));
-        mjson_error(err);
-        err = json_object_set(res,"cmd",json_string("TARGET_STATUS"));
-        mjson_error(err);
-        err = json_object_set(res,"from",json_string("LOCALHOST"));
-        mjson_error(err);
-        err = json_object_set(res,"remoteID",json_string(""));
-        mjson_error(err);
-        uint8_t *res_str = json_dumps(res,JSON_INDENT(4));
-        MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
-        newTask->sock = 0;
-        newTask->msg = res_str;
-        do{
-            while(msg_rec_queue->size >= MAX_MSG_CACHE); // wait for cache space
-        }while(msg_rec_flag == 1);
-        msg_rec_flag = 1;// add lock
-        Enqueue(msg_rec_queue,newTask);
-        msg_rec_flag = 0;// remove lock
-        free(newTask);
-    }
+    
 }
 
 
-static Tox *init_tox(int ipv4)
+static Tox *init_tox()
 {
-    /* Init core */
-    int ipv6 = !ipv4;
-    Tox *m = tox_new(ipv6);
+    Tox *m = tox_new(1);
 
-    /*
-    * TOX_ENABLE_IPV6_DEFAULT is always 1.
-    * Checking it is redundant, this *should* be doing ipv4 fallback
-    */
-    if (ipv6 && m == NULL) {
+    if (m == NULL) {
         fprintf(stderr, "IPv6 didn't initialize, trying IPv4\n");
         m = tox_new(0);
     }
 
-    if (ipv4)
+    if (m ==NULL)
         fprintf(stderr, "Forcing IPv4 connection\n");
-
-    if (m == NULL)
-        return NULL;
 
     /* Callbacks */
     tox_callback_connection_status(m, on_connectionchange, NULL);
@@ -144,7 +93,7 @@ static Tox *init_tox(int ipv4)
     return m;
 }
 
-int init_connection(Tox *m)
+int init_tox_connection(Tox *m)
 {
     uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
     int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
@@ -153,6 +102,7 @@ int init_connection(Tox *m)
         exit(1);
     }
 }
+
 
 
 void *tox_works(){
@@ -168,7 +118,7 @@ void *tox_works(){
                 time_t timestamp1 = time(NULL);
                 if (timestamp0 + 10 < timestamp1) {
                     timestamp0 = timestamp1;
-                    init_connection(my_tox);
+                    init_tox_connection(my_tox);
                 }
                 
             }
@@ -222,55 +172,85 @@ int main(int argc, char *argv[])
 {
     // 添加系统事件监听
     signal(SIGINT, intHandler);
-    my_tox = init_tox(0);
-    init_connection(my_tox);
+    my_tox = init_tox();
+    init_tox_connection(my_tox);
     load_data(my_tox);
+    
+    // 虛擬參數
+    const uint8_t *target_id = "341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4";
+    const uint8_t *target_ip = "";
+    const uint32_t target_port = 0;
+    
+    // 初始化消息隊列
     msg_task_flag = 0; // 1 when msg is not available
     msg_rec_flag = 0; // 1 when rec_queue is not available
     msg_task_queue = createQueue(MAX_MSG_CACHE); // 远程操作消息队列
     msg_rec_queue = createQueue(MAX_MSG_CACHE); // 本地操作消息队列
+    
+    // 開始tox線程
     pthread_t tox_thread;
     int iret1 = pthread_create( &tox_thread, NULL, tox_works,NULL);
     if(iret1){
         printf("Create tox thread failed.\n");
         exit(EXIT_FAILURE);
     }
-    int sockfd, newsockfd, portno,pid;
-    socklen_t clilen;
-    char buffer[256];
-    struct sockaddr_in serv_addr, cli_addr;
-    signal(SIGCHLD,SIG_IGN);
-    if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
-        exit(1);
-    }
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-       error("ERROR opening socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    portno = atoi(argv[1]);
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-    if (bind(sockfd, (struct sockaddr *) &serv_addr,
-            sizeof(serv_addr)) < 0) 
-            error("ERROR on binding");
-    listen(sockfd,5);
-    clilen = sizeof(cli_addr);
-    while(1){
-        newsockfd = accept(sockfd, 
-              (struct sockaddr *) &cli_addr, 
-              &clilen);
-        if (newsockfd < 0) 
-            error("ERROR on accept");
-        
-        pthread_t *sock_thread = (pthread_t *)malloc(sizeof(pthread_t));
-        int iret2 = pthread_create( sock_thread, NULL, process_sock,(void*)(&newsockfd));
-        if(iret2){
-            printf("Create Socket thread failed.\n");
+    
+    // 開始準備連接
+    if(target_id != NULL){
+        // 進入請求者模式
+        // 等待tox成功連接
+        while(!tox_isconnected(my_tox)){
+            usleep(20000);
         }
-        // this may led to memory leak
+        printf("connected\n");
+        init_connect(my_tox,target_id,msg_listener_list);
+        printf("handshake success");
+    }else{
+        // 進入服務者模式
+        while(1){
+            usleep(20000);
+        }
     }
-    close(sockfd);
+    
+    
+    
+    //開始監聽本地端口
+//     int sockfd, newsockfd, portno,pid;
+//     socklen_t clilen;
+//     char buffer[256];
+//     struct sockaddr_in serv_addr, cli_addr;
+//     signal(SIGCHLD,SIG_IGN);
+//     if (argc < 2) {
+//         fprintf(stderr,"ERROR, no port provided\n");
+//         exit(1);
+//     }
+//     sockfd = socket(AF_INET, SOCK_STREAM, 0);
+//     if (sockfd < 0) 
+//        error("ERROR opening socket");
+//     bzero((char *) &serv_addr, sizeof(serv_addr));
+//     portno = atoi(argv[1]);
+//     serv_addr.sin_family = AF_INET;
+//     serv_addr.sin_addr.s_addr = INADDR_ANY;
+//     serv_addr.sin_port = htons(portno);
+//     if (bind(sockfd, (struct sockaddr *) &serv_addr,
+//             sizeof(serv_addr)) < 0) 
+//             error("ERROR on binding");
+//     listen(sockfd,5);
+//     clilen = sizeof(cli_addr);
+//     while(1){
+//         newsockfd = accept(sockfd, 
+//               (struct sockaddr *) &cli_addr, 
+//               &clilen);
+//         if (newsockfd < 0) 
+//             error("ERROR on accept");
+//         
+//         pthread_t *sock_thread = (pthread_t *)malloc(sizeof(pthread_t));
+//         int iret2 = pthread_create( sock_thread, NULL, process_sock,(void*)(&newsockfd));
+//         if(iret2){
+//             printf("Create Socket thread failed.\n");
+//         }
+//         // this may led to memory leak
+//     }
+//     close(sockfd);
     return 0; 
 }

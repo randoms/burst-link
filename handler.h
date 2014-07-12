@@ -1,3 +1,6 @@
+#ifndef _HANDLER_H
+#define _HANDLER_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,3 +37,5 @@ void mtox_connect(char *target_info);
  */
 int mtox_friend_add(Tox *m, const char *friendID, int sock);
 int mtox_friend_accept(Tox *m, const char *friendID,int sock);
+
+#endif

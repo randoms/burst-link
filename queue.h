@@ -1,3 +1,6 @@
+#ifndef _QUEUE_H
+#define _QUEUE_H
+
 #include<stdio.h>
 #include<stdlib.h>
 #include "toxcore/tox.h"
@@ -28,3 +31,4 @@ Queue * createQueue(int maxElements);
 void Dequeue(Queue *Q);
 MSGTask *front(Queue *Q);
 void Enqueue(Queue *Q,MSGTask *element);
+#endif

@@ -1,10 +1,14 @@
 return code
 100 friend related
+    110 + return code
+
     101 add friend success
     102 add friend failed
     103 already friend
     104 friend req has send, wait to accept
 200 message related
+    210 + return code
+
     201 send message success
     202 target is not friend
     203 send message failed
@@ -12,6 +16,11 @@ return code
 300 target status
     target come online
     target offline
+    
+    
+400 toxcore related
+    401 toxcore offline
+    402 connect OK
     
 分包过程
     这个信息传输应该是序列化的，所以只要在每个包上加一个id就行了，就用uuid
@@ -77,8 +86,28 @@ return code
     这里需要两个队列，一个来自node的消息队列，另一个是来自对方的消息队列
     这里不采用一问一答的形式，toxcore不会直接对本地的node信息进行回复，确认连接应该在更底层和更高层进行
     
+    主要的處理過程
+    對於請求端，node向本地toxcore發送和接收信息就不用包含對方的ID信息
+    對於接受請求端，就要包含ID信息，toxcore端根據請求的ID向對方發送指定信息
     
-    
         
         
-        
+        341CCFBC
+        C4D41C5B
+        3AB89E31
+        E7561C5D
+        37E201D5
+        DDBFA7AF
+        C6B4EDD2
+        D6A82F4B
+        7D06A2ED
+        3DE4
+        341CCFBC
+        C4D41C5B
+        3AB89E31
+        E7561C5D
+        37E21D5D
+        DBFA7AFC
+        6B4EDD2D
+        6A82F4B4
+        01
