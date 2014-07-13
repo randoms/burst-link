@@ -9,8 +9,8 @@
  * Globals
  */
 Tox *my_tox;
-uint8_t msg_task_flag;
-uint8_t msg_rec_flag;
+uint8_t msg_task_flag = 0;
+uint8_t msg_rec_flag = 0;
 Queue *msg_task_queue; // 消息处队列
 Queue *msg_rec_queue; //需要传递给node端的信息
 Msg_listener_list *msg_listener_list = NULL;
@@ -28,19 +28,18 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
     accept_connect(my_tox,public_key,msg_listener_list);
 }
 
-void friend_message(Tox *messenger, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
+void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
     printf("MESSAGE:%s\n",string);
-    uint8_t id[TOX_FRIEND_ADDRESS_SIZE];
-    char id_str[TOX_FRIEND_ADDRESS_SIZE];
-//     uint8_t fraddr_bin[TOX_FRIEND_ADDRESS_SIZE];
-//     char fraddr_str[FRADDR_TOSTR_BUFSIZE];
-    tox_get_client_id(my_tox,friendnumber,id);
-    //fraddr_to_str(fraddr_bin, fraddr_str);
-    //printf("ID:%s\n",fraddr_str);
-    hexid_to_str(id,id_str);
-    //printf("ID:%s\n",id_str);
+    // get remote id
+    uint8_t client_id_bin[TOX_CLIENT_ID_SIZE];
+    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
+    tox_get_client_id(m,friendnumber,client_id_bin);
+    client_id_bin[TOX_CLIENT_ID_SIZE] = '\0'; // add end mark to client_id_bin
+    hex_bin_to_string(client_id_bin,client_id_str);
     // 添加消息觸發器
-    //trigger_msg_listener(msg_listener_list,string,id);
+    printf("%d\n",msg_task_flag);
+    //print_msg_listener_list(msg_listener_list);
+    //trigger_msg_listener(msg_listener_list,string,client_id_str);
     // 添加消息隊列消息
     
     

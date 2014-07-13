@@ -15,6 +15,10 @@
 char *hex_string_to_bin(const char *hex_string);
 void hexid_to_str(uint8_t *id_bin, uint8_t *id_str);
 void fraddr_to_str(uint8_t *id_bin, char *id_str);
+void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str);
+void address_bin_to_client_id_bin(const uint8_t *address_bin, uint8_t *client_id_bin);
+void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str);
+void get_my_client_id_str(Tox *m, uint8_t *my_addr_str);
 void load_data(Tox *m);
 int store_data(Tox *m);
 #endif

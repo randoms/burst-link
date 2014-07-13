@@ -130,6 +130,8 @@ uint8_t is_message_received(Msg_listener_list *msg_listener_list, const uint8_t 
 
 void trigger_msg_listener(Msg_listener_list *msg_listener_list,const uint8_t *msg, const uint8_t *id){
     // try to find if this message is registered
+    printf("I am running\n");
+    print_msg_listener_list(msg_listener_list);
     Msg_listener_node *temp = msg_listener_list->head;
     MsgListener *temp_lisener;
     while(temp->after != NULL){

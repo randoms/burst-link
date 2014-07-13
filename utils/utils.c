@@ -42,6 +42,14 @@ void fraddr_to_str(uint8_t *id_bin, char *id_str)
         id_str[pos_extra] = 0;
 }
 
+void address_bin_to_client_id_bin(const uint8_t *address_bin, uint8_t *client_id_bin){
+    uint32_t i;
+    for(i=0;i<TOX_CLIENT_ID_SIZE;i++){
+        client_id_bin[i] = address_bin[i];
+    }
+    client_id_bin[TOX_CLIENT_ID_SIZE] = '\0';
+}
+
 void hexid_to_str(uint8_t *id_bin, uint8_t *id_str){
     uint8_t length = TOX_FRIEND_ADDRESS_SIZE;
     uint8_t i = 0;
@@ -160,4 +168,36 @@ void load_data(Tox *m)
             printf("LOAD_DATA:ERROR 3");
             exit(EXIT_FAILURE);;
     }
+}
+
+
+void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str){
+    uint32_t max_length = TOX_CLIENT_ID_SIZE*2;
+    uint32_t i = 0;
+    for(i = 0;i<max_length;i++){
+        client_id_str[i] = add_str[i];
+    }
+    client_id_str[max_length] = '\0';
+}
+
+void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str){
+    uint32_t bin_length = strlen(hex_bin);
+    uint32_t str_length = 2*bin_length;
+    uint8_t temp_str[10];
+    uint32_t i =0;
+    strcpy(str,"");
+    for(i=0;i<bin_length;i++){
+        if(hex_bin[i]<16){
+            sprintf(temp_str,"0%X",hex_bin[i]);
+        }else{
+            sprintf(temp_str,"%X",hex_bin[i]);
+        }
+        strcat(str,temp_str);
+    }
+}
+
+void get_my_client_id_str(Tox *m, uint8_t *my_addr_str){
+    uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    tox_get_address(m,addr_bin);
+    hex_bin_to_string(addr_bin,my_addr_str);
 }
