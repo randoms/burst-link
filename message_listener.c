@@ -61,7 +61,7 @@ void print_msg_listener_list(Msg_listener_list *mlist){
     MsgListener temp_lisener = *(temp.me);
     while(temp.after != NULL){
         temp_lisener = *(temp.me);
-        printf("message listener\n");
+        printf("message listener ********\n");
         printf("message:%s\n",temp_lisener.msg);
         printf("id:%s\n",temp_lisener.id);
         printf("is_received:%d\n",temp_lisener.is_received);
@@ -70,37 +70,33 @@ void print_msg_listener_list(Msg_listener_list *mlist){
     
     // print last one
     temp_lisener = *(temp.me);
-    printf("message listener\n");
+    printf("message listener **********\n");
     printf("message:%s\n",temp_lisener.msg);
     printf("id:%s\n",temp_lisener.id);
     printf("is_received:%d\n",temp_lisener.is_received);
     
 }
 
-uint8_t is_message_received(Msg_listener_list *msg_listener_list, const uint8_t *msg, const uint8_t *id){
+uint8_t is_message_received(Msg_listener_list **msg_listener_list, const uint8_t *msg, const uint8_t *id){
     // init
-    if(msg_listener_list == NULL){
+    if(*msg_listener_list == NULL){
         MsgListener *mlistener = (MsgListener *)malloc(sizeof(MsgListener));
         mlistener->msg = msg;
         mlistener->id = id;
         mlistener->is_received = 0;
-        msg_listener_list = create_msg_listener_list();
-        add_msg_listener_list(msg_listener_list,mlistener);
+        *msg_listener_list = create_msg_listener_list();
+        add_msg_listener_list(*msg_listener_list,mlistener);
         free(mlistener);
         return 0;
     }else{
         // check exist
-        Msg_listener_node *temp = msg_listener_list->head;
+        Msg_listener_node *temp = (*msg_listener_list)->head;
         MsgListener *temp_lisener;
         while(temp->after != NULL){
             temp_lisener = temp->me;
             if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
                 // already added
                 int res = temp_lisener->is_received;
-//                 if(res == 1){
-//                     // triggered
-//                     remove_msg_listener_list(msg_listener_list,temp);
-//                 }
                 return res;
             }
             temp = temp->after;
@@ -108,12 +104,8 @@ uint8_t is_message_received(Msg_listener_list *msg_listener_list, const uint8_t 
         // check the last one
         temp_lisener = temp->me;
         if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
-            // already added
+            // already added;
             int res = temp_lisener->is_received;
-//             if(res == 1){
-//                 // triggered
-//                 remove_msg_listener_list(msg_listener_list,temp);
-//             }
             return res;
         }
         
@@ -122,7 +114,7 @@ uint8_t is_message_received(Msg_listener_list *msg_listener_list, const uint8_t 
         temp_lisener->msg = msg;
         temp_lisener->id = id;
         temp_lisener->is_received = 0;
-        add_msg_listener_list(msg_listener_list,temp_lisener);
+        add_msg_listener_list(*msg_listener_list,temp_lisener);
         free(temp_lisener);
         return 0;
     }
@@ -130,8 +122,7 @@ uint8_t is_message_received(Msg_listener_list *msg_listener_list, const uint8_t 
 
 void trigger_msg_listener(Msg_listener_list *msg_listener_list,const uint8_t *msg, const uint8_t *id){
     // try to find if this message is registered
-    printf("I am running\n");
-    print_msg_listener_list(msg_listener_list);
+    if(msg_listener_list == NULL)return;
     Msg_listener_node *temp = msg_listener_list->head;
     MsgListener *temp_lisener;
     while(temp->after != NULL){
@@ -148,21 +139,23 @@ void trigger_msg_listener(Msg_listener_list *msg_listener_list,const uint8_t *ms
     if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
         // already added
         temp_lisener->is_received = 1;
-        free(temp_lisener);
         return;
     }
 }
 
 
 // int main(void){
-//     is_message_received("HELLO","one");
-//     is_message_received("HELLO","two");
+//     Msg_listener_list *msg_listener_list = NULL;
+//     
+//     is_message_received(&msg_listener_list, "HELLO","one");
+//     is_message_received(&msg_listener_list,"HELLO","two");
+//     msg_listener_list->size;
 //     print_msg_listener_list(msg_listener_list);
-//     int res = is_message_received("HELLO","two");
+//     int res = is_message_received(&msg_listener_list,"HELLO","two");
 //     printf("two:%d\n",res);
-//     trigger_msg_listener("HELLO","two");
-//     res = is_message_received("HELLO","two");
+//     trigger_msg_listener(msg_listener_list,"HELLO","two");
+//     res = is_message_received(&msg_listener_list,"HELLO","two");
 //     printf("two:%d\n",res);
-//     res = is_message_received("HELLO","two");
+//     res = is_message_received(&msg_listener_list,"HELLO","two");
 //     printf("two:%d\n",res);
 // }

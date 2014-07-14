@@ -12,8 +12,11 @@
 #include <jansson.h>
 #include "toxcore/tox.h"
 
+uint8_t *testdata;
 
 void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str){
+    testdata = (uint8_t *)malloc(sizeof(uint8_t)*10);
+    strcpy(testdata,"Hello world");
     uint32_t bin_length = strlen(hex_bin);
     uint32_t str_length = 2*bin_length;
     uint8_t temp_str[10];
@@ -34,5 +37,6 @@ int main(int argc, char *argvs[]){
     uint8_t a[5] = {1,2,3,4,5};
     uint8_t b[strlen(a)*2];
     hex_bin_to_string(a,b);
+    printf("%s\n",testdata);
 }
 

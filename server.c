@@ -14,7 +14,12 @@ uint8_t msg_rec_flag = 0;
 Queue *msg_task_queue; // 消息处队列
 Queue *msg_rec_queue; //需要传递给node端的信息
 Msg_listener_list *msg_listener_list = NULL;
+uint8_t MODE = 0; // 0 req mode 1,server mode
+uint32_t node_sockfd = 0; // node socket 
 
+const uint8_t *target_ip; // 远端连接目标IP
+uint8_t target_port; // 远端连接目标端口
+    
 void error(const char *msg)
 {
     perror(msg);
@@ -24,25 +29,65 @@ void error(const char *msg)
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
     //接受請求
+    write_local_message(node_sockfd,"friend req received");
     printf("req received\n");
-    accept_connect(my_tox,public_key,msg_listener_list);
+    uint8_t str[TOX_CLIENT_ID_SIZE*2];
+    hex_bin_to_string(public_key,TOX_CLIENT_ID_SIZE,str);
+    printf("%s\n",str);
+    accept_connect(my_tox,str,msg_listener_list);
 }
 
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
     printf("MESSAGE:%s\n",string);
+    write_local_message(node_sockfd,string);
     // get remote id
     uint8_t client_id_bin[TOX_CLIENT_ID_SIZE];
     uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
     tox_get_client_id(m,friendnumber,client_id_bin);
-    client_id_bin[TOX_CLIENT_ID_SIZE] = '\0'; // add end mark to client_id_bin
-    hex_bin_to_string(client_id_bin,client_id_str);
+    hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
-    printf("%d\n",msg_task_flag);
+    trigger_msg_listener(msg_listener_list,string,client_id_str);
     //print_msg_listener_list(msg_listener_list);
-    //trigger_msg_listener(msg_listener_list,string,client_id_str);
     // 添加消息隊列消息
+    // 服务端模式处理
+    if(MODE == 1){
+        if(strcmp(string,"HANDSHAKE") == 0){
+            tox_send_message(m,friendnumber,"HANDSHAKE",strlen("HANDSHAKE"));
+            return;
+        }
+        uint8_t *INIT_REQ_STR = "INIT_REQ:";
+        int32_t i =0;
+        uint8_t equal_flag = 1;
+        for(i=0;i<strlen(INIT_REQ_STR);i++){
+            if(string[i] != INIT_REQ_STR[i])equal_flag = 0;
+        }
+        if(equal_flag == 1){
+            // send setting info to node
+//             json_t *res = json_object();
+//             int32_t err;
+//             err = json_object_set(res,"TARGET_IP",json_string(target_ip));
+//             mjson_error(err);
+//             err = json_object_set(res,"PORT",json_integer(target_port));
+//             mjson_error(err);
+//             uint8_t response[2048];
+//             response[0] = '\0';
+//             strcat(response,"INIT_REQ");
+//             strcat(response,json_dumps(res,JSON_INDENT(4)));
+            //write_local_message(node_sockfd,response);
+            write_local_message(node_sockfd,"test");
+            
+            // fake response
+            tox_send_message(m,friendnumber,"INIT_REQ:OK",strlen("INIT_REQ:OK"));
+            // tox_send_message(m,friendnumber,"INIT_REQ:OK",strlen("INIT_REQ:ERROR"));
+        }
+    }
     
-    
+    if(MODE == 0){
+        if(strcmp(string,"INIT_REQ:OK") == 0){
+            write_local_message(node_sockfd,"INIT_REQ:OK");
+            write_local_message(node_sockfd,"402");
+        }
+    }
 }
 
 void write_file(Tox *messenger, int32_t friendnumber, uint8_t filenumber,const uint8_t *data, uint16_t length, void *userdata) {
@@ -64,12 +109,12 @@ static Tox *init_tox()
     Tox *m = tox_new(1);
 
     if (m == NULL) {
-        fprintf(stderr, "IPv6 didn't initialize, trying IPv4\n");
+//         fprintf(stderr, "IPv6 didn't initialize, trying IPv4\n");
         m = tox_new(0);
     }
 
     if (m ==NULL)
-        fprintf(stderr, "Forcing IPv4 connection\n");
+//         fprintf(stderr, "Forcing IPv4 connection\n");
 
     /* Callbacks */
     tox_callback_connection_status(m, on_connectionchange, NULL);
@@ -97,7 +142,7 @@ int init_tox_connection(Tox *m)
     uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
     int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
     if (!res) {
-        printf("Failed to convert into an IP address. Exiting...\n");
+//         printf("Failed to convert into an IP address. Exiting...\n");
         exit(1);
     }
 }
@@ -111,7 +156,7 @@ void *tox_works(){
     while (1) {
         if (on == 0) {
             if (tox_isconnected(my_tox)) {
-                printf("connected to DHT\n");
+//                 printf("connected to DHT\n");
                 on = 1;
             } else {
                 time_t timestamp1 = time(NULL);
@@ -144,7 +189,7 @@ void *process_sock(void *ptr){
     bzero(buffer,2048);
     n = read(sock,buffer,2048);
     if (n < 0) error("ERROR reading from socket");
-    printf("Message Received:\n %s\n",buffer);
+//     printf("Message Received:\n %s\n",buffer);
     MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
     newTask->sock = sock;
     newTask->msg = buffer;
@@ -166,6 +211,49 @@ void intHandler(int dummy) {
     exit(EXIT_SUCCESS);
 }
 
+/**
+ * send target ip and port to remote
+ */
+void init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,const uint32_t target_port){
+    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
+    address_str_to_client_str(address_str,client_id_str);
+    uint16_t friendnum = tox_get_friend_number(m,hex_string_to_bin(client_id_str));
+    if(friendnum == -1){
+        write_local_message(node_sockfd,"401");
+        exit(1);
+    }
+    write_local_message(node_sockfd,"START INIT_REQ ...");
+    if(tox_send_message(m,friendnum,"INIT_REQ:",strlen("INIT_REQ:")) < 0){
+        write_local_message(node_sockfd,"401");
+        exit(1);
+    }
+}
+
+void on_local_message_received(uint32_t sockfd, uint8_t *msg){
+    printf("LOCAL_MESSAGE:%s\n",msg);
+}
+
+void init_local_sock(local_port){
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    
+    node_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (node_sockfd < 0) 
+        error("ERROR opening socket");
+    server = gethostbyname("127.0.0.1");
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+    serv_addr.sin_port = htons(local_port);
+    if (connect(node_sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
+        error("ERROR connecting");
+}
 
 int main(int argc, char *argv[])
 {
@@ -175,10 +263,28 @@ int main(int argc, char *argv[])
     init_tox_connection(my_tox);
     load_data(my_tox);
     
+    // 处理参数
+    const uint32_t local_port = atoi(argv[1]);
+    const uint8_t *target_id;
+    if(argc >3){
+        target_id = argv[2];
+        target_ip = argv[3];
+        target_port = atoi(argv[4]);
+    }else{
+        target_id = NULL;
+        uint8_t my_address_bin[TOX_FRIEND_ADDRESS_SIZE];
+        uint8_t my_address_str[TOX_FRIEND_ADDRESS_SIZE*2];
+        tox_get_address(my_tox,my_address_bin);
+        hex_bin_to_string(my_address_bin,TOX_FRIEND_ADDRESS_SIZE,my_address_str);
+        printf("MYID:%s\n",my_address_str);
+    }
     // 虛擬參數
+    
+    /*
     const uint8_t *target_id = "341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4";
     const uint8_t *target_ip = "";
     const uint32_t target_port = 0;
+    */
     
     // 初始化消息隊列
     msg_task_flag = 0; // 1 when msg is not available
@@ -190,9 +296,12 @@ int main(int argc, char *argv[])
     pthread_t tox_thread;
     int iret1 = pthread_create( &tox_thread, NULL, tox_works,NULL);
     if(iret1){
-        printf("Create tox thread failed.\n");
+//         printf("Create tox thread failed.\n");
         exit(EXIT_FAILURE);
     }
+    
+    // 初始化本地连接
+    init_local_sock(local_port);
     
     // 開始準備連接
     if(target_id != NULL){
@@ -201,18 +310,27 @@ int main(int argc, char *argv[])
         while(!tox_isconnected(my_tox)){
             usleep(20000);
         }
-        printf("connected\n");
-        init_connect(my_tox,target_id,msg_listener_list);
-        printf("handshake success");
+//         printf("connected\n");
+        write_local_message(node_sockfd,"TOXCORE:ONLINE");
+        init_connect(my_tox,target_id,&msg_listener_list);
+        write_local_message(node_sockfd,"CONNECT:OK");
+        init_req_mode(my_tox,target_id,target_ip,target_port);
     }else{
         // 進入服務者模式
-        while(1){
-            usleep(20000);
-        }
+        MODE = 1;
     }
+
     
+
+    char buffer[2048];
     
-    
+    while(1){
+        bzero(buffer,2048);
+        int n = read(node_sockfd,buffer,2047);
+        if(n>0)on_local_message_received(node_sockfd,buffer);
+        if (n < 0) 
+         error("ERROR reading from socket");
+    }
     //開始監聽本地端口
 //     int sockfd, newsockfd, portno,pid;
 //     socklen_t clilen;

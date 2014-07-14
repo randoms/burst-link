@@ -162,10 +162,10 @@ function listenLocal(local_port,remote_tox_id,cb){
             // 转发给本地
             if(isFromLocal(data)){
                 parseCmd(data);
-                console.log(data.toString())
-            }else{
-                localTcpServerSock.write(data);
                 console.log(data.toString());
+            }else{
+                console.log(data.toString());
+                localTcpServerSock.write(data);
             }
         })
         
@@ -173,7 +173,6 @@ function listenLocal(local_port,remote_tox_id,cb){
             // 关闭本地
             //localTcpServerSock.end(data);
         })
-        
         
     }).listen(0, localhost)
     
@@ -190,8 +189,8 @@ function connectLocal(){
 
 function connect(remote_tox_id,local_port,remote_ip,remote_port){
     
-    listenLocal(local_port,remote_tox_id,function(){
-        init(local_tox_port,remote_tox_id,remote_ip,remote_port,function(err){
+    listenLocal(local_port,null,function(){
+        init(local_tox_port,null,null,null,function(err){
             if(err.status == "OK");
             console.log("Burst Link:READY");
         });
@@ -199,4 +198,4 @@ function connect(remote_tox_id,local_port,remote_ip,remote_port){
     })
 }
 
-connect("9D9D799FAD4EEF3EB2B56568DC61B3B49DF223C83FF1566739C7B936B792F344247F52397BB7",9998,"127.0.0.1",50001)
+connect("341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4",9992,"127.0.0.1",50001)

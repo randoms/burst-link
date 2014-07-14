@@ -6,7 +6,7 @@ char *hex_string_to_bin(const char *hex_string)
     char *val = malloc(len);
 
     if (val == NULL){
-        printf("transform failed");
+//         printf("transform failed");
     }
 
     size_t i;
@@ -54,9 +54,8 @@ void hexid_to_str(uint8_t *id_bin, uint8_t *id_str){
     uint8_t length = TOX_FRIEND_ADDRESS_SIZE;
     uint8_t i = 0;
     uint8_t *temp_str;
-    printf("called\n");
     for(i = 0; i<length;i++){
-        printf(temp_str,"%X",id_bin[i]);
+//         printf(temp_str,"%X",id_bin[i]);
         //sprintf(temp_str,"%X",id_bin[i]);
         //id_str[i] = temp_str[0];
         //id_str[i+1] = temp_str[1];
@@ -136,7 +135,7 @@ void load_data(Tox *m)
     FILE *fd;
     int len;
     char *buf;
-    printf("LOADING\n");
+//     printf("LOADING\n");
 
     if ((fd = fopen(path, "rb")) != NULL) {
         fseek(fd, 0, SEEK_END);
@@ -147,14 +146,14 @@ void load_data(Tox *m)
 
         if (buf == NULL) {
             fclose(fd);
-            printf("LOAD_DATA:ERROR 1");
+//             printf("LOAD_DATA:ERROR 1");
             exit(EXIT_FAILURE);
         }
 
         if (fread(buf, len, 1, fd) != 1) {
             free(buf);
             fclose(fd);
-            printf("LOAD_DATA:ERROR 2");
+//             printf("LOAD_DATA:ERROR 2");
             exit(EXIT_FAILURE);
         }
 
@@ -165,7 +164,7 @@ void load_data(Tox *m)
         int st;
 
         if ((st = store_data(m)) != 0)
-            printf("LOAD_DATA:ERROR 3");
+//             printf("LOAD_DATA:ERROR 3");
             exit(EXIT_FAILURE);;
     }
 }
@@ -180,8 +179,8 @@ void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str){
     client_id_str[max_length] = '\0';
 }
 
-void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str){
-    uint32_t bin_length = strlen(hex_bin);
+void hex_bin_to_string(const uint8_t *hex_bin,const uint32_t bin_length, uint8_t *str){
+    
     uint32_t str_length = 2*bin_length;
     uint8_t temp_str[10];
     uint32_t i =0;
@@ -199,5 +198,14 @@ void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str){
 void get_my_client_id_str(Tox *m, uint8_t *my_addr_str){
     uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE];
     tox_get_address(m,addr_bin);
-    hex_bin_to_string(addr_bin,my_addr_str);
+    hex_bin_to_string(addr_bin,TOX_FRIEND_ADDRESS_SIZE,my_addr_str);
+}
+
+void write_local_message(uint32_t sockfd,const uint8_t *msg){
+    uint8_t local_msg[2048];
+    local_msg[0] = '\0';
+    strcat(local_msg,"LOCAL:");
+    strcat(local_msg,msg);
+    strcat(local_msg,"\n");
+    write(sockfd,local_msg,strlen(local_msg));
 }
