@@ -34,9 +34,8 @@ void hex_bin_to_string(uint8_t *hex_bin, uint8_t *str){
 }
 
 int main(int argc, char *argvs[]){
-    uint8_t a[5] = {1,2,3,4,5};
-    uint8_t b[strlen(a)*2];
-    hex_bin_to_string(a,b);
-    printf("%s\n",testdata);
+    uint8_t test[100];
+    sprintf(test,"HI:%d\n",10000);
+    printf("%s\n",test);
 }
 

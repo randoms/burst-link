@@ -29,12 +29,12 @@ void error(const char *msg)
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
     //接受請求
-    write_local_message(node_sockfd,"friend req received");
+    write_local_message(node_sockfd,"FRIEND_REQ:RECEIVED");
     printf("req received\n");
     uint8_t str[TOX_CLIENT_ID_SIZE*2];
     hex_bin_to_string(public_key,TOX_CLIENT_ID_SIZE,str);
     printf("%s\n",str);
-    accept_connect(my_tox,str,msg_listener_list);
+    accept_connect(my_tox,str,msg_listener_list,node_sockfd);
 }
 
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_t length, void *userdata) {
@@ -62,20 +62,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_
             if(string[i] != INIT_REQ_STR[i])equal_flag = 0;
         }
         if(equal_flag == 1){
-            // send setting info to node
-//             json_t *res = json_object();
-//             int32_t err;
-//             err = json_object_set(res,"TARGET_IP",json_string(target_ip));
-//             mjson_error(err);
-//             err = json_object_set(res,"PORT",json_integer(target_port));
-//             mjson_error(err);
-//             uint8_t response[2048];
-//             response[0] = '\0';
-//             strcat(response,"INIT_REQ");
-//             strcat(response,json_dumps(res,JSON_INDENT(4)));
-            //write_local_message(node_sockfd,response);
-            write_local_message(node_sockfd,"test");
-            
+            write_local_message(node_sockfd,string);
             // fake response
             tox_send_message(m,friendnumber,"INIT_REQ:OK",strlen("INIT_REQ:OK"));
             // tox_send_message(m,friendnumber,"INIT_REQ:OK",strlen("INIT_REQ:ERROR"));
@@ -223,7 +210,18 @@ void init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,c
         exit(1);
     }
     write_local_message(node_sockfd,"START INIT_REQ ...");
-    if(tox_send_message(m,friendnum,"INIT_REQ:",strlen("INIT_REQ:")) < 0){
+    json_t *res = json_object();
+    int32_t err;
+    err = json_object_set(res,"TARGET_IP",json_string(target_ip));
+    mjson_error(err);
+    err = json_object_set(res,"PORT",json_integer(target_port));
+    mjson_error(err);
+    uint8_t response[2048];
+    response[0] = '\0';
+    strcat(response,"INIT_REQ:");
+    strcat(response,json_dumps(res,JSON_INDENT(4)));
+    
+    if(tox_send_message(m,friendnum,response,strlen(response)) < 0){
         write_local_message(node_sockfd,"401");
         exit(1);
     }
@@ -312,8 +310,16 @@ int main(int argc, char *argv[])
         }
 //         printf("connected\n");
         write_local_message(node_sockfd,"TOXCORE:ONLINE");
-        init_connect(my_tox,target_id,&msg_listener_list);
-        write_local_message(node_sockfd,"CONNECT:OK");
+        int res = init_connect(my_tox,target_id,&msg_listener_list,node_sockfd);
+        uint8_t temp_str[100];
+        sprintf(temp_str,"RES:%d\n",res);
+        write_local_message(node_sockfd,temp_str);
+        if(res == 402){
+            write_local_message(node_sockfd,"CONNECT:OK");
+        }
+        else{
+            write_local_message(node_sockfd,"CONNECT:ERROR");
+        }
         init_req_mode(my_tox,target_id,target_ip,target_port);
     }else{
         // 進入服務者模式

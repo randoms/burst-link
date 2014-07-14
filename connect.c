@@ -18,7 +18,7 @@ uint8_t *send_message_str(const uint8_t *client_id_str, const uint8_t *msg){
 /**
  * init a tox connection
  */
-int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_listener_list){
+int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_listener_list,uint32_t sockfd){
     // check online state
     if(!tox_isconnected(m)){
         printf("401\n");
@@ -37,11 +37,13 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
         };
     }
     friendnum = tox_get_friend_number(m,hex_string_to_bin(client_id_str));
-    
-    printf("friendnum:%d\n",friendnum);
+    uint8_t temp_str[100];
+    sprintf(temp_str,"friendNum:%d\n",friendnum);
+    write_local_message(sockfd,temp_str);
+    //printf("friendnum:%d\n",friendnum);
     // check target online state
     uint32_t retryCount = 0;
-    while( tox_get_friend_connection_status(m,friendnum) != 1 && retryCount <40){
+    while( tox_get_friend_connection_status(m,friendnum) != 1 && retryCount <100){
         usleep(1000000);
         retryCount ++;
         printf("online num:%d\n",tox_get_num_online_friends(m));
@@ -71,8 +73,6 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
             usleep(200000);
             timeout ++;
         }
-//         print_msg_listener_list(*msg_listener_list);
-//         printf("received:%d\n",is_message_received(msg_listener_list,"HANDSHAKE",client_id_str));
         if(is_message_received(msg_listener_list,"HANDSHAKE",client_id_str)){
             // handShake received
             printf("402\n");
@@ -90,7 +90,7 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
 /**
  * accept a connection
  */
-int accept_connect(Tox *m,const uint8_t *client_id_str,Msg_listener_list *msg_listener_list){
+int accept_connect(Tox *m,const uint8_t *client_id_str,Msg_listener_list *msg_listener_list,uint32_t sockfd){
     // check online state
     if(!tox_isconnected(m)){
         printf("401\n");
@@ -108,11 +108,12 @@ int accept_connect(Tox *m,const uint8_t *client_id_str,Msg_listener_list *msg_li
         }
     }
     friendnum = tox_get_friend_number(m,hex_string_to_bin(client_id_str));
-    printf("friendnum:%d\n",friendnum);
-    printf("add friend success\n");
+    uint8_t temp_str[100];
+    sprintf(temp_str,"ADD_FRIEND:%d\n",friendnum);
+    write_local_message(sockfd,temp_str);
     // wait for handshake message
     uint32_t timeout = 0; // timeout 4s
-    while(is_message_received(&msg_listener_list,"HANDSHAKE",client_id_str) == 0  && timeout< 40){
+    while(is_message_received(&msg_listener_list,"HANDSHAKE",client_id_str) == 0  && timeout< 100){
         printf("wait online\n");
         usleep(1000000);
         printf("online num:%d\n",tox_get_num_online_friends(m));

@@ -6,7 +6,7 @@
 #include "utils/utils.h"
 #include "message_listener.h"
 
-int init_connect(Tox *m, const uint8_t *id, Msg_listener_list **msg_listener_list);
-int accept_connect(Tox *m,const uint8_t *id,Msg_listener_list *msg_listener_list);
+int init_connect(Tox *m, const uint8_t *id, Msg_listener_list **msg_listener_list, uint32_t sockfd);
+int accept_connect(Tox *m,const uint8_t *id,Msg_listener_list *msg_listener_list, uint32_t sockfd);
 
 #endif
