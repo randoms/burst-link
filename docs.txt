@@ -136,6 +136,145 @@ bugs
 有没有必要进行分割
 好像完全没有必要进行分包
 直接传就行
-试试直接传吧
+试试直接传吧 直传测试成功
 
-本地连接还是应该开两个，一个专门用来传数据另一个用来传控制指令
+本地连接还是应该开两个，一个专门用来传数据另一个用来传控制指令,必须要考虑同时有多个连接的情况，这个太普遍了
+
+还是全部都用C比较好，这样通信过程就简单多了
+但是开发效率会很低，一个list都要写挺长时间，字符串处理更头疼
+
+怎么分成一次一次的
+先读控制用socket
+如果读到 READ：user client id
+那么就开始读数据socket，直到读的没数据 这样就算一次
+所以node在传数据的时候要有独占性，要加锁，加消息队列
+读完之后在控制端写入 read:over
+
+控制端的指令采用一问一答的形式，在对方回答之前不能写入新的指令
+
+
+sock的生命周期
+
+初始化tox连接
+// 还要考虑不同的电脑连接同一个服务器的情况
+
+socket的创建
+
+创建sock之前的准备工作
+初始化tox连接
+    tox 发送INIT_REQ 指令到远端
+    如果远程连接建立成功
+        在node上存储以下信息
+            {
+                clientID: user client id
+                ip address:
+                port:
+            }
+        如果数据已经存在则可以进行覆盖，每个clientID只能同时连接一个特定端口
+        
+node 创建sock服务器
+本地sock连接到 node的时候
+node 创建一个对象
+{
+    from: client id
+    sock:sock对象
+    uuid:uuid
+}
+设置sock的ondata事件回调，在on data的时候就向把以下信息加入到消息队列里面 // 这里是node收到了本地的sock的信息
+{
+    uuid
+    data
+    sock
+}
+node 定时的把消息队列中的消息利用上面设计的方法发送给toxcore
+toxcore 收到消息之后把消息加入到消息队列，主循环内对消息队列进行处理
+toxcore 收到远端信息的时候，把消息处理成下面的格式 
+
+在tox网络传递的内容
+{
+    uuid：socket uuid
+    data: raw data  <512>
+}
+
+远程toxcore接收到信息
+处理成以下格式
+
+远端toxcore接收到后加上发送者ID
+{
+    from: client id
+    uuid: socket uuid
+    data: raw data <512>
+}
+把消息加入发送队列里面
+利用之前设计的方法发送给node
+
+node 收到消息之后，如果uuid对应的记录已经存在，就把raw data发给对应的sock
+如果不存在就创建一个sock连接到对应端口，把raw data发送到指定对象
+同时创建以下对象
+{
+    from: client id
+    uuid:
+    sock
+}
+
+
+server 端收到本地信息的处理过程
+首先sock client和对应的记录都是已经存在了
+找到对应的记录
+
+按照之前设计的方法发送信息给toxcore
+控制端这时要包含两个信息
+    uuid
+    target client id
+    
+发送的过程都是一样的，只不过这里要根据target id 发送给不同的对象
+
+请求端接收到消息的时候，处理成的形式添加到发送队列
+    uuid 
+    data raw data<512>
+
+
+
+sock的消灭
+    正常的退出
+        本地sock client关闭
+        node 检测到本地sock关闭，删除sock记录
+        控制端发送以下信息给toxcore
+            close:uuid
+            target id: client id
+        toxcore 处理成以下格式
+            {
+                target_id:
+                uuid:
+                cmd:close
+            }
+        加入消息队列
+        
+        远端toxcore收到消息之后把消息发送个node，node关闭对应sock，同时删除sock对应的记录
+        
+    非正常退出
+        这个还真没办法处理，不过危害也不大，只不过残留了一些资源而已
+        
+        
+指令控制用sock 发送 
+
+本地新建sock client 连接到 本地 node服务器，本地生成一个sock的 uuid
+
+
+sock 发送信息时 在信息内容里面加上自己的uuid 远端如果没有这个记录就创建一个， 远端node就创建一个新的sock clinet，
+
+
+一个socket包的格式
+在tox网络传递的内容
+{
+    uuid：socket uuid
+    data: raw data  <512>
+}
+
+远端toxcore接收到后加上发送者ID
+{
+    from: client id
+    uuid: socket uuid
+    data: raw data <512>
+}
+// 发送消息的时候不是直接发送，把消息存到消息队列里面，在tox主循环内发送
