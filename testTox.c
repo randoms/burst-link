@@ -10,7 +10,6 @@
 #include <time.h>
 
 #include "toxcore/tox.h"
-#include "utils/utils.c"
 
 #include "route.h"
 #include "utils/utils.h"
@@ -18,35 +17,10 @@
 #define BOOTSTRAP_ADDRESS "42.96.195.88"
 #define BOOTSTRAP_PORT 33445
 #define BOOTSTRAP_KEY "7F613A23C9EA5AC200264EB727429F39931A86C39B67FC14D9ECA4EBE0D37F25"
-#define FRIEND_ID "54D15CDA233EA72B5ECC6EBA8CA43F4447A006EC4BCAB91BA698D38B3675980E75F4A5ABB722"
+#define FRIEND_ID "341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4"
 
 #define FRADDR_TOSTR_CHUNK_LEN 8
 #define FRADDR_TOSTR_BUFSIZE (TOX_FRIEND_ADDRESS_SIZE * 2 + TOX_FRIEND_ADDRESS_SIZE / FRADDR_TOSTR_CHUNK_LEN + 1)
-
-static void fraddr_to_str(uint8_t *id_bin, char *id_str)
-{
-    uint32_t i, delta = 0, pos_extra, sum_extra = 0;
-
-    for (i = 0; i < TOX_FRIEND_ADDRESS_SIZE; i++) {
-        sprintf(&id_str[2 * i + delta], "%02hhX", id_bin[i]);
-
-        if ((i + 1) == TOX_CLIENT_ID_SIZE)
-            pos_extra = 2 * (i + 1) + delta;
-
-        if (i >= TOX_CLIENT_ID_SIZE)
-            sum_extra |= id_bin[i];
-
-        if (!((i + 1) % FRADDR_TOSTR_CHUNK_LEN)) {
-            id_str[2 * (i + 1) + delta] = ' ';
-            delta++;
-        }
-    }
-
-    id_str[2 * i + delta] = 0;
-
-    if (!sum_extra)
-        id_str[pos_extra] = 0;
-}
 
 void get_id(Tox *m, char *data)
 {
@@ -102,6 +76,7 @@ int main(){
             }
         }
         time_t timestamp1 = time(NULL);
+        uint8_t send_flag = 0;
         if (timestamp0 + 2 < timestamp1) {
             timestamp0 = timestamp1;
             printf("sending message\n");
@@ -114,8 +89,9 @@ int main(){
             printf("add res:%d\n",friend_num);
             uint32_t online_friend_num = tox_get_num_online_friends(m);
             printf("online friend num:%d\n",online_friend_num);
-            uint32_t message_id = tox_send_message(m,friend_num,"hi",strlen("hi"));
-            printf("message res:%d\n",message_id);
+            uint32_t message_id;
+            if(send_flag == 0)message_id = tox_send_message(m,friend_num,"hi",strlen("hi"));
+            if(message_id >0)send_flag =1;
         }
         tox_do(m);
     }

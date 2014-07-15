@@ -195,10 +195,13 @@ void hex_bin_to_string(const uint8_t *hex_bin,const uint32_t bin_length, uint8_t
     }
 }
 
-void get_my_client_id_str(Tox *m, uint8_t *my_addr_str){
+void get_my_client_id_str(Tox *m, uint8_t *my_id_str){
     uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    uint8_t my_addr_str[TOX_FRIEND_ADDRESS_SIZE*2];
+    
     tox_get_address(m,addr_bin);
     hex_bin_to_string(addr_bin,TOX_FRIEND_ADDRESS_SIZE,my_addr_str);
+    address_str_to_client_str(my_addr_str,my_id_str);
 }
 
 void write_local_message(uint32_t sockfd,const uint8_t *msg){
@@ -208,4 +211,10 @@ void write_local_message(uint32_t sockfd,const uint8_t *msg){
     strcat(local_msg,msg);
     strcat(local_msg,"\n");
     write(sockfd,local_msg,strlen(local_msg));
+}
+
+void printf_local_message(uint32_t sockfd, const uint8_t* format, uint32_t data){
+    uint8_t temp_str[1024];
+    sprintf(temp_str,format,data);
+    write_local_message(sockfd,temp_str);
 }

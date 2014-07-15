@@ -34,5 +34,5 @@ void remove_msg_listener_list(Msg_listener_list *mlist, Msg_listener_node *mnode
 void print_msg_listener_list(Msg_listener_list *mlist);
 uint8_t is_message_received(Msg_listener_list **msg_listener_list,const uint8_t *msg, const uint8_t *id);
 void trigger_msg_listener(Msg_listener_list *msg_listener_list, const uint8_t *msg, const uint8_t *id);
-
+void trigger_msg_listener_debug(Msg_listener_list *msg_listener_list,const uint8_t *msg, const uint8_t *id,uint32_t sockfd);
 #endif

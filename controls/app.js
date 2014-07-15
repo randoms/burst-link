@@ -115,40 +115,40 @@ function listenLocal(local_port,remote_tox_id,cb){
                 console.log('DATA ' + localTcpServerSock.remoteAddress + ': ' + data);
                 // 加工收到的数据，如果太大就进行分包处理
                 
-                var max_pack_size = 1024;
-                var total = parseInt(data.length/max_pack_size)+1;
-                var packArray = [];
-                var packID = uuid.v1();
-                for(var count = 0;count<total;count++){
-                    packArray[count] = [];
-                    var packSize = 0;
-                    if(count == total -1){
-                        packSize = data.length%max_pack_size;
-                    }else{
-                        packSize = max_pack_size;
-                    }
-                    for(var i = 0;i<packSize;i++){
-                        packArray[count][i] = data[count*max_pack_size+i];
-                    }
-                    var req = {
-                        remoteID:remote_tox_id,
-                        msg:{
-                            packID:packID,
-                            total:total,
-                            order:count,
-                            package:packArray[count],
-                        },
-                    }
-                    // 把接收的数据发送给toxcore
-                    console.log(req);
-                    toToxTcpServerSock.write(JSON.stringify(req,null,4));
-                }
+//                 var max_pack_size = 1024;
+//                 var total = parseInt(data.length/max_pack_size)+1;
+//                 var packArray = [];
+//                 var packID = uuid.v1();
+//                 for(var count = 0;count<total;count++){
+//                     packArray[count] = [];
+//                     var packSize = 0;
+//                     if(count == total -1){
+//                         packSize = data.length%max_pack_size;
+//                     }else{
+//                         packSize = max_pack_size;
+//                     }
+//                     for(var i = 0;i<packSize;i++){
+//                         packArray[count][i] = data[count*max_pack_size+i];
+//                     }
+//                     var req = {
+//                         remoteID:remote_tox_id,
+//                         msg:{
+//                             packID:packID,
+//                             total:total,
+//                             order:count,
+//                             package:packArray[count],
+//                         },
+//                     }
+//                     // 把接收的数据发送给toxcore
+//                     console.log(req);
+//                     toToxTcpServerSock.write(JSON.stringify(req,null,4));
+//                 }
+                toToxTcpServerSock.write(data);
                 console.log(data.length);
             });
 
             localTcpServerSock.on('close', function(data) {
-                console.log('CLOSED: ' +
-                    localTcpServerSock.remoteAddress + ' ' + localTcpServerSock.remotePort);
+                console.log('CLOSED');
                 // 关闭和toxcore的连接
                 toToxTcpServerSock.end();
             });
@@ -164,8 +164,9 @@ function listenLocal(local_port,remote_tox_id,cb){
                 parseCmd(data);
                 console.log(data.toString())
             }else{
-                localTcpServerSock.write(data);
                 console.log(data.toString());
+                if(localTcpServerSock != "")
+                    localTcpServerSock.write(data);
             }
         })
         
@@ -199,4 +200,4 @@ function connect(remote_tox_id,local_port,remote_ip,remote_port){
     })
 }
 
-connect("F0693B42A625929595E4FA72A8241FD1E0411839BD4CAE82B2259BF450612D577B0BE9E90A4B",9998,"127.0.0.1",50001)
+connect("468A885803010AB022BD738453C8C0739D354F42AF1261CD8F4978CA6775D02E97A6D9141723",9998,"127.0.0.1",22)

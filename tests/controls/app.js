@@ -22,27 +22,11 @@ var spawn = require('child_process').spawn
 var toToxTcpServer = "";
 var toToxTcpServerSock = "";
 var localTcpServerSock = "";
-
-function sendMessage(msg,cb){
-    var res = "";
-    var client = new net.Socket();
-    client.connect(local_tox_port, localhost, function() {
-        client.write(msg);
-        client.end();
-    });
-
-    client.on('data', function(data) {
-        res += data;
-    });
-
-    client.on('close', function() {
-        console.log('Connection closed');
-        cb(res);
-    });
-}
+var localTcpClientSock = "";
 
 
-function init(local_port,remote_tox_id,remote_ip,remote_port,cb){
+
+function init(local_port,remote_tox_id,remote_ip,remote_port){
     console.log("init burst link ...");
     var toxcore;
     if(remote_tox_id == null){
@@ -62,7 +46,7 @@ function init(local_port,remote_tox_id,remote_ip,remote_port,cb){
     });
     
     toxcore.stdout.on('data',function(data){
-        console.log(data);
+        console.log(data.toString());
         data = data+"";
     })
     
@@ -91,10 +75,26 @@ function isFromLocal(data){
 function parseCmd(data){
     data = data.toString();
     var cmd = data.substring("LOCAL:".length);
-    if(cmd == 402){
+    if(cmd == "402"){
         // toxcore ready
         console.log("TOXCORE:READY");
+    }else if(cmd.indexOf("INIT_REQ") == 0){
+        var content = cmd.substring("INIT_REQ:".length);
+        content = JSON.parse(content);
+        connectLocal(content.TARGET_IP,content.PORT,function(res){
+            if(res == "OK"){
+                toToxTcpServerSock.write("INIT_REQ:OK");
+                console.log("Start Local port OK");
+            }
+            else{
+                toToxTcpServerSock.write("INIT_REQ:ERROR");  
+                console.log("Start Local port error");
+            } 
+        });
+        
+        
     }
+    
 }
 
 function listenLocal(local_port,remote_tox_id,cb){
@@ -183,19 +183,66 @@ function listenLocal(local_port,remote_tox_id,cb){
   })
 }
 
-function connectLocal(){
+function connectLocal(target_ip,target_port,cb){    
+
+    var client = new net.Socket();
+    localTcpClientSock = client;
     
+    client.connect(target_port, target_ip, function() {
+        cb("OK");
+    });
+
+    client.on('data', function(data) {
+        console.log(data);
+        toToxTcpServerSock.write(data);
+    });
+
+    client.on('close', function() {
+        console.log('Connection closed');
+    });
+    
+    client.on('error',cb);
+}
+
+function listenLocalServ(cb){
+    
+    var toToxTcpServer = net.createServer(function(toxsock){
+        toToxTcpServerSock = toxsock;
+        console.log('CONNECTED: ' +
+            toToxTcpServerSock.remoteAddress + ':' + toToxTcpServerSock.remotePort);
+        
+        // 远端来数据的处理
+        
+        toToxTcpServerSock.on('data',function(data){
+            // 转发给本地
+            if(isFromLocal(data)){
+                parseCmd(data);
+                console.log(data.toString());
+            }else{
+                console.log(data.toString());
+                localTcpClientSock.write(data);
+            }
+        })
+        
+        toToxTcpServerSock.on('close',function(data){
+            // 关闭本地
+            //localTcpServerSock.end(data);
+        })
+        
+    }).listen(0, localhost)
+    
+    // get local toToxTcpServer port
+    toToxTcpServer.on('listening', function() {
+    local_tox_port = toToxTcpServer.address().port
+    if(cb != null)cb();
+  })
 }
 
 function connect(remote_tox_id,local_port,remote_ip,remote_port){
     
-    listenLocal(local_port,null,function(){
-        init(local_tox_port,null,null,null,function(err){
-            if(err.status == "OK");
-            console.log("Burst Link:READY");
-        });
-        
+    listenLocalServ(function(err){
+        init(local_tox_port,null,null,null);
     })
 }
 
-connect("341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4",9992,"127.0.0.1",50001)
+connect();

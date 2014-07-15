@@ -143,6 +143,34 @@ void trigger_msg_listener(Msg_listener_list *msg_listener_list,const uint8_t *ms
     }
 }
 
+void trigger_msg_listener_debug(Msg_listener_list *msg_listener_list,const uint8_t *msg, const uint8_t *id,uint32_t sockfd){
+    // try to find if this message is registered
+    if(msg_listener_list == NULL)return;
+    Msg_listener_node *temp = msg_listener_list->head;
+    MsgListener *temp_lisener;
+    while(temp->after != NULL){
+        temp_lisener = temp->me;
+        if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
+            // already added
+            temp_lisener->is_received = 1;
+            return;
+        }
+        temp = temp->after;
+    }
+    // check the last one
+    temp_lisener = temp->me;
+    write_local_message(sockfd,"start");
+    write_local_message(sockfd,temp_lisener->msg);
+    write_local_message(sockfd,msg);
+    write_local_message(sockfd,temp_lisener->id);
+    write_local_message(sockfd,id);
+    write_local_message(sockfd,"end");
+    if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
+        // already added
+        temp_lisener->is_received = 1;
+        return;
+    }
+}
 
 // int main(void){
 //     Msg_listener_list *msg_listener_list = NULL;
