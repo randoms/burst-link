@@ -9,16 +9,16 @@
  * Globals
  */
 Tox *my_tox;
-uint8_t msg_task_flag = 0;
+uint8_t msg_task_flag = 0; // 1 not available, 0 available
 uint8_t msg_rec_flag = 0;
 Queue *msg_task_queue; // 消息处队列
 Queue *msg_rec_queue; //需要传递给node端的信息
 Msg_listener_list *msg_listener_list = NULL;
 uint8_t MODE = 0; // 0 req mode 1,server mode
-uint32_t node_sockfd = 0; // node socket 
 
 const uint8_t *target_ip; // 远端连接目标IP
 uint32_t target_port; // 远端连接目标端口
+const uint8_t *target_id; // 远程目标ADDRESS
 
 // FRIEND NUMBER
 uint32_t FRIEND_NUM = 0;
@@ -26,6 +26,10 @@ uint32_t FRIEND_NUM = 0;
 // flags
 int32_t init_over_flag = 0;
 int32_t init_req_flag = 0;
+
+// local sockets
+local_socks_list *msocks_list = NULL;
+uint32_t local_socksfd = 0;
     
 void error(const char *msg)
 {
@@ -48,7 +52,6 @@ void *accept_req_work(void *mparms){
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
     //接受請求
-    write_local_message(node_sockfd,"FRIEND_REQ:RECEIVED");
     printf("req received\n");
     uint8_t *str = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_CLIENT_ID_SIZE*2+1));
     hex_bin_to_string(public_key,TOX_CLIENT_ID_SIZE,str);
@@ -60,13 +63,13 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
     req_parms->m = my_tox;
     req_parms->id = str;
     req_parms->msg_listener_list = msg_listener_list;
-    req_parms->sockfd = node_sockfd;
+    req_parms->sockfd = local_socksfd;
     
     int iret1 = pthread_create( accept_req_thread, NULL,accept_req_work,req_parms);
     if(iret1){
         exit(EXIT_FAILURE);
     }else{
-        write_local_message(node_sockfd,"PROCESSING FRIEND REQ");
+//         write_local_message(local_socksfd,"PROCESSING FRIEND REQ");
     }
 }
 
@@ -79,7 +82,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_
     hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
     trigger_msg_listener(msg_listener_list,string,client_id_str);
-    //trigger_msg_listener_debug(msg_listener_list,string,client_id_str,node_sockfd);
+    //trigger_msg_listener_debug(msg_listener_list,string,client_id_str,local_socksfd);
     // 添加消息隊列消息
     // 服务端模式处理
     if(MODE == 1){
@@ -96,11 +99,11 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_
             if(string[i] != INIT_REQ_STR[i])equal_flag = 0;
         }
         if(equal_flag == 1){
-            write_local_message(node_sockfd,string);
+//             write_local_message(local_socksfd,string);
         }
         
         if(init_over_flag == 1){
-            write(node_sockfd,string,length);
+            write(local_socksfd,string,length);
         }
     }
     
@@ -114,7 +117,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_
         }
         if(init_over_flag == 1){
             // 发送给本地端口
-            write(node_sockfd,string,length);
+            write(local_socksfd,string,length);
         }
     }
 }
@@ -185,7 +188,6 @@ void *tox_works(){
     while (1) {
         if (on == 0) {
             if (tox_isconnected(my_tox)) {
-//                 printf("connected to DHT\n");
                 on = 1;
             } else {
                 time_t timestamp1 = time(NULL);
@@ -198,40 +200,13 @@ void *tox_works(){
         }
         tox_do(my_tox);
         if(msg_task_queue->size != 0 && msg_task_flag == 0){
-            msg_task_flag = 1;
-            MSGTask *mTask = front(msg_task_queue); // 开始处理
-            route(mTask->msg,my_tox,mTask->sock);
-            close(mTask->sock);
-            Dequeue(msg_task_queue);
-            msg_task_flag = 0;
-        }
-        else{
+            send_data_remote();
+        }else{
             usleep(40000);
         }
     }
 }
 
-void *process_sock(void *ptr){
-    int sock = *((int *)ptr);
-    int n;
-    uint8_t buffer[2048];
-    bzero(buffer,2048);
-    n = read(sock,buffer,2048);
-    if (n < 0) error("ERROR reading from socket");
-//     printf("Message Received:\n %s\n",buffer);
-    MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
-    newTask->sock = sock;
-    newTask->msg = buffer;
-    do{
-        while(msg_task_queue->size >= MAX_MSG_CACHE); // wait for cache space
-    }while(msg_task_flag == 1);
-    // enter queue
-    msg_task_flag = 1;
-    Enqueue(msg_task_queue,newTask);
-    msg_task_flag = 0;
-    // free space
-    free(newTask);
-}
 
 
 void intHandler(int dummy) {
@@ -251,10 +226,10 @@ int init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,co
     address_str_to_client_str(address_str,client_id_str);
     uint16_t friendnum = tox_get_friend_number(m,hex_string_to_bin(client_id_str));
     if(friendnum == -1){
-        write_local_message(node_sockfd,"401");
+//         write_local_message(local_socksfd,"401");
         exit(1);
     }
-    write_local_message(node_sockfd,"START INIT_REQ ...");
+//     write_local_message(local_socksfd,"START INIT_REQ ...");
     json_t *res = json_object();
     int32_t err;
     err = json_object_set(res,"TARGET_IP",json_string(target_ip));
@@ -268,7 +243,7 @@ int init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,co
     int init_res = tox_send_message(m,friendnum,response,strlen(response));
     
     if(init_res < 0){
-        write_local_message(node_sockfd,"401");
+//         write_local_message(local_socksfd,"401");
         init_req_flag = -1;
         return -1;
     }
@@ -311,12 +286,12 @@ void on_local_message_received(uint32_t sockfd, uint8_t *msg, uint32_t size){
     
 }
 
-void init_local_sock(local_port){
+uint32_t init_local_sock(uint32_t local_port){
     struct sockaddr_in serv_addr;
     struct hostent *server;
     
-    node_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (node_sockfd < 0) 
+    int32_t sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) 
         error("ERROR opening socket");
     server = gethostbyname("127.0.0.1");
     if (server == NULL) {
@@ -329,9 +304,152 @@ void init_local_sock(local_port){
          (char *)&serv_addr.sin_addr.s_addr,
          server->h_length);
     serv_addr.sin_port = htons(local_port);
-    if (connect(node_sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
+    return sockfd;
 }
+
+uint32_t init_local_sock_serv(uint32_t local_port){
+    int sockfd;
+    socklen_t clilen;
+    char buffer[256];
+    struct sockaddr_in serv_addr;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) 
+    error("ERROR opening socket");
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(local_port);
+    if (bind(sockfd, (struct sockaddr *) &serv_addr,
+            sizeof(serv_addr)) < 0) 
+            error("ERROR on binding");
+    listen(sockfd,5);
+    return sockfd;
+}
+
+
+/**
+ * add data to local message queue
+ * this func may block if current message queue is not available
+ * data format
+ * {
+ *  remote_id:
+ *  uuid:
+ *  cmd: can be null
+ *  data: raw data <512 or less>
+ * }
+ */
+void write_data_local(uint8_t *uuid, uint8_t *data, uint32_t length){
+    
+}
+
+/**
+ * add data to remote message queue
+ * this func may block if current message queue is not available
+ * data format
+ * {
+ *  target_id: target to send
+ *  uuid: sock uuid
+ *  data: raw data <512 or less>
+ *  cmd: can be null when no cmd is to send
+ * }
+ * 
+ */
+void write_data_remote(uint8_t *uuid, uint8_t* cmd, uint8_t *data, uint32_t length){
+    
+}
+
+/**
+ * read message from local message queue, and send to local server
+ * this will only send one message in the message queue
+ * and write_data_local will block at the same time
+ */
+void send_data_local(){
+    
+}
+
+/**
+ * read message from remote message queue, and send to remote
+ * this will only send one message in the message queue
+ * and write_data_remote will be block at the same time
+ */
+void send_data_remote(){
+    if(msg_task_queue->size != 0 && msg_task_flag == 0){
+        msg_task_flag = 1;
+        MSGTask *mTask = front(msg_task_queue); // 开始处理
+        int friend_num = tox_get_friend_number(my_tox,mTask->target_addr_bin);
+        //tox_send_message(my_tox,friend_num,mTask->msg,strlen(mTask->msg));
+        printf("SENDING_MESSAGE:%d %s\n",(int)strlen(mTask->msg),mTask->msg);
+        Dequeue(msg_task_queue);
+        free(mTask->target_addr_bin);
+        free(mTask->msg);
+        msg_task_flag = 0;
+    }
+}
+
+/**
+ * this func will be called immediately after local data received
+ * wrap data in proper format
+ * {
+ *  uuid
+ *  data
+ * }
+ */
+void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
+    uint8_t *uuid = get_local_socks_uuid(msocks_list,sockfd);
+    json_t *data_json = json_pack("s#",data,length);
+    json_t *uuid_json = json_pack("s",uuid);
+    json_t *msg_json = json_object();
+    json_object_set(msg_json,"uuid",uuid_json);
+    json_object_set(msg_json,"data",data_json);
+    uint8_t *msg = json_dumps(msg_json,JSON_INDENT(4));
+    //printf("MESSAGE_TO_SEND:%s\n",msg);
+    
+    // add msg to message queue
+    MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
+    uint8_t *target_addr_bin = hex_string_to_bin(target_id);
+    newTask->target_addr_bin = target_addr_bin;
+    newTask->msg = msg;
+    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE);
+    // enter queue
+    msg_task_flag = 1;
+    Enqueue(msg_task_queue,newTask);
+    msg_task_flag = 0;
+    // free space
+    free(newTask);
+}
+
+/**
+ * this func will be called immediately after remote data received
+ * NOTE: remote data is not remote message. it's remote message with fixed format
+ * {
+ *  uuid
+ *  data
+ * }
+ */
+void on_remote_data_received(uint8_t *data){
+    
+}
+
+
+void *on_local_sock_connect(void *msockfd){
+    uint32_t sockfd = *((uint32_t *)msockfd);
+    add_local_socks(msocks_list,sockfd);
+    printf("CONNECTED\n");
+    uint8_t buf[512];
+    int length = 1;
+    while(length > 0){
+        bzero(buf,512);
+        length = read(sockfd,buf,511);
+        //printf("LENGTH:%d\n",length);
+        if(length > 0)
+            on_local_data_received(buf,length,sockfd);
+    }
+    // read data error
+    close_local_socks(msocks_list,sockfd);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -343,7 +461,6 @@ int main(int argc, char *argv[])
     
     // 处理参数
     const uint32_t local_port = atoi(argv[1]);
-    const uint8_t *target_id;
     if(argc >3){
         target_id = argv[2];
         target_ip = argv[3];
@@ -358,12 +475,6 @@ int main(int argc, char *argv[])
     }
     // 虛擬參數
     
-    /*
-    const uint8_t *target_id = "341CCFBCC4D41C5B3AB89E31E7561C5D37E201D5DDBFA7AFC6B4EDD2D6A82F4B7D06A2ED3DE4";
-    const uint8_t *target_ip = "";
-    const uint32_t target_port = 0;
-    */
-    
     // 初始化消息隊列
     msg_task_flag = 0; // 1 when msg is not available
     msg_rec_flag = 0; // 1 when rec_queue is not available
@@ -374,54 +485,67 @@ int main(int argc, char *argv[])
     pthread_t tox_thread;
     int iret1 = pthread_create( &tox_thread, NULL, tox_works,NULL);
     if(iret1){
-//         printf("Create tox thread failed.\n");
         exit(EXIT_FAILURE);
     }
     
     // 初始化本地连接
-    init_local_sock(local_port);
+    local_socksfd = init_local_sock_serv(local_port);
     
     // 等待tox成功連接
     while(!tox_isconnected(my_tox)){
         usleep(20000);
     }
-    write_local_message(node_sockfd,"TOXCORE:ONLINE");
+    printf("TOXCORE:ONLINE\n");
+    printf("SERVER:LISTEN ON %d\n",local_port);
     
-    // 開始準備連接
-    if(target_id != NULL){
-        // 進入請求者模式
-        int res = init_connect(my_tox,target_id,&msg_listener_list,node_sockfd);
-        if(res == 402){
-            write_local_message(node_sockfd,"CONNECT:OK");
-        }
-        else{
-            write_local_message(node_sockfd,"CONNECT:ERROR");
-        }
-        int req_res = init_req_mode(my_tox,target_id,target_ip,target_port);
-        uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
-        address_str_to_client_str(target_id,client_id_str);
-        FRIEND_NUM = tox_get_friend_number(my_tox,hex_string_to_bin(client_id_str));
-        if(req_res ==1 ){
-            init_over_flag = 1;
-            write_local_message(node_sockfd,"402");
-        }else{
-            write_local_message(node_sockfd,"401");
-        }
-    }else{
-        // 進入服務者模式
-        MODE = 1;
-    }
+//     // 開始準備連接
+//     if(target_id != NULL){
+//         // 進入請求者模式
+//         int res = init_connect(my_tox,target_id,&msg_listener_list,local_socksfd);
+//         if(res == 402){
+//             write_local_message(local_socksfd,"CONNECT:OK");
+//         }
+//         else{
+//             write_local_message(local_socksfd,"CONNECT:ERROR");
+//         }
+//         int req_res = init_req_mode(my_tox,target_id,target_ip,target_port);
+//         uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
+//         address_str_to_client_str(target_id,client_id_str);
+//         FRIEND_NUM = tox_get_friend_number(my_tox,hex_string_to_bin(client_id_str));
+//         if(req_res ==1 ){
+//             init_over_flag = 1;
+//             write_local_message(local_socksfd,"402");
+//         }else{
+//             write_local_message(local_socksfd,"401");
+//         }
+//     }else{
+//         // 進入服務者模式
+//         MODE = 1;
+//     }
 
     
 
+    // client mode
+    // create local tcp server
+    msocks_list = create_local_socks_list();
+    
     char buffer[1024];
     
     while(1){
-        bzero(buffer,1024);
-        int n = read(node_sockfd,buffer,1023);
-        if(n>0)on_local_message_received(node_sockfd,buffer,n);
-        if (n < 0) 
-         error("ERROR reading from socket");
+        struct sockaddr_in cli_addr;
+        uint32_t clilen = sizeof(cli_addr);
+        uint32_t newsockfd = accept(local_socksfd, 
+                    (struct sockaddr *) &cli_addr, 
+                    &clilen);
+        printf("NEWFD:%d\n",newsockfd);
+        if (newsockfd < 0){
+            printf("LOCAL_SOCK:ERROR\n");
+            continue;
+        }
+        
+        // start a new thread
+        pthread_t new_sock_thread;
+        pthread_create( &new_sock_thread, NULL, on_local_sock_connect,&newsockfd);
     }
     
     return 0; 

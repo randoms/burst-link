@@ -6,7 +6,7 @@
 #include "toxcore/tox.h"
 
 typedef struct MSGTask {
-   int sock;
+   uint8_t *target_addr_bin;
    uint8_t *msg;
 } MSGTask;
 

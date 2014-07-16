@@ -64,7 +64,7 @@ void Enqueue(Queue *Q,MSGTask *element)
                         Q->rear = 0;
                 }
                 /* Insert the element in its rear side */ 
-                Q->elements[Q->rear].sock = element->sock;
+                Q->elements[Q->rear].target_addr_bin = element->target_addr_bin;
                 Q->elements[Q->rear].msg = element->msg;
         }
         return;

@@ -22,6 +22,7 @@
 #include "route.h"
 #include "message_listener.h"
 #include "connect.h"
+#include "local_socks.h"
 
 #define BOOTSTRAP_ADDRESS "42.96.195.88"
 #define BOOTSTRAP_PORT 33445
@@ -33,5 +34,14 @@
 #define BOOTSTRAP_KEY "7F31BFC93B8E4016A902144D0B110C3EA97CB7D43F1C4D21BCAE998A7C838821"
 */
 #define MY_NAME "BurstLink"
+
+
+
+/**
+ * read message from remote message queue, and send to remote
+ * this will only send one message in the message queue
+ * and write_data_remote will be block at the same time
+ */
+void send_data_remote();
 
 #endif

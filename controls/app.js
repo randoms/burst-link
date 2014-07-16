@@ -14,14 +14,18 @@
  */
 
 var net = require('net');
-var local_tox_port = 0;
 var localhost = '127.0.0.1'
 var async = require('async');
 var uuid = require('node-uuid');
 var spawn = require('child_process').spawn
-var toToxTcpServer = "";
-var toToxTcpServerSock = "";
-var localTcpServerSock = "";
+var connectM = require('./models/connections.js');
+
+var database = {}
+database.local_tox_port = 0;
+database.localTcpServer = "";
+database.localCmdList = [];
+
+var command_free_flag = 0; // 0 current ctrl sock is not free, 1 free
 
 function sendMessage(msg,cb){
     var res = "";
@@ -53,141 +57,23 @@ function init(local_port,remote_tox_id,remote_ip,remote_port,cb){
         // start toxcore in req mode
         toxcore = spawn(__dirname+'/../server',[local_port,remote_tox_id,remote_ip,remote_port],{cwd:__dirname+'/../'});
     }
-    toxcore.on("error",function(err){
-        console.log(err);
-    })
-
-    toxcore.stderr.on('data', function (data) {
-        console.log('stderr: ' + data);
-    });
-    
-    toxcore.stdout.on('data',function(data){
-        console.log(data);
-        data = data+"";
-    })
     
     toxcore.on("close",function(code){
         if(code == 0){
             console.log("TOXCORE:EXITED");
         }else{
-            if(cb != null)cb({
-                status:"ERROR"
-            })
+            
         }
     })
-}
-
-
-function isFromLocal(data){
-    var localCMD = "LOCAL:";
-    var equalFlag = 1;
-    for(var i=0;i<localCMD.length;i++){
-        if(localCMD.charCodeAt(i) != data[i])equalFlag = 0;
-    }
-    if(equalFlag == 1)return true;
-    return false;
-}
-
-function parseCmd(data){
-    data = data.toString();
-    var cmd = data.substring("LOCAL:".length);
-    if(cmd == 402){
-        // toxcore ready
-        console.log("TOXCORE:READY");
-    }
-}
-
-function listenLocal(local_port,remote_tox_id,cb){
     
-    var toToxTcpServer = net.createServer(function(toxsock){
-        toToxTcpServerSock = toxsock;
-        console.log('CONNECTED: ' +
-            toToxTcpServerSock.remoteAddress + ':' + toToxTcpServerSock.remotePort);
-        
-        net.createServer(function(msock) {
-
-            localTcpServerSock = msock;
-            console.log('CONNECTED: ' +
-                localTcpServerSock.remoteAddress + ':' + localTcpServerSock.remotePort);
-
-
-            localTcpServerSock.on('data', function(data) {
-                console.log('DATA ' + localTcpServerSock.remoteAddress + ': ' + data);
-                // 加工收到的数据，如果太大就进行分包处理
-                
-//                 var max_pack_size = 1024;
-//                 var total = parseInt(data.length/max_pack_size)+1;
-//                 var packArray = [];
-//                 var packID = uuid.v1();
-//                 for(var count = 0;count<total;count++){
-//                     packArray[count] = [];
-//                     var packSize = 0;
-//                     if(count == total -1){
-//                         packSize = data.length%max_pack_size;
-//                     }else{
-//                         packSize = max_pack_size;
-//                     }
-//                     for(var i = 0;i<packSize;i++){
-//                         packArray[count][i] = data[count*max_pack_size+i];
-//                     }
-//                     var req = {
-//                         remoteID:remote_tox_id,
-//                         msg:{
-//                             packID:packID,
-//                             total:total,
-//                             order:count,
-//                             package:packArray[count],
-//                         },
-//                     }
-//                     // 把接收的数据发送给toxcore
-//                     console.log(req);
-//                     toToxTcpServerSock.write(JSON.stringify(req,null,4));
-//                 }
-                toToxTcpServerSock.write(data);
-                console.log(data.length);
-            });
-
-            localTcpServerSock.on('close', function(data) {
-                console.log('CLOSED');
-                // 关闭和toxcore的连接
-                toToxTcpServerSock.end();
-            });
-
-        }).listen(local_port, localhost);
-        
-        
-        // 远端来数据的处理
-        
-        toToxTcpServerSock.on('data',function(data){
-            // 转发给本地
-            if(isFromLocal(data)){
-                parseCmd(data);
-                console.log(data.toString())
-            }else{
-                console.log(data.toString());
-                if(localTcpServerSock != "")
-                    localTcpServerSock.write(data);
-            }
-        })
-        
-        toToxTcpServerSock.on('close',function(data){
-            // 关闭本地
-            //localTcpServerSock.end(data);
-        })
-        
-        
-    }).listen(0, localhost)
-    
-    // get local toToxTcpServer port
-    toToxTcpServer.on('listening', function() {
-    local_tox_port = toToxTcpServer.address().port
-    if(cb != null)cb();
-  })
+    // start local cmd loop
+    setInterval(function(){
+        while(command_free_flag == 1 && database.localCmdList.length != 0){
+            
+        }
+    },10) 
 }
 
-function connectLocal(){
-    
-}
 
 function connect(remote_tox_id,local_port,remote_ip,remote_port){
     
@@ -201,3 +87,121 @@ function connect(remote_tox_id,local_port,remote_ip,remote_port){
 }
 
 connect("468A885803010AB022BD738453C8C0739D354F42AF1261CD8F4978CA6775D02E97A6D9141723",9998,"127.0.0.1",22)
+
+
+/**
+ * 第一个连接的是tox指令sock
+ * 第二个连接的是tox数据sock
+ * 以后连接的是普通本地sock
+ */
+sockCount = 0;
+function initLocalSock(localPort){
+    database.localTcpServer = net.createServer(function(sock){
+        if(sockCount == 0){
+            // tox ctrl sock connected
+            onNewSock(sock,"CTRL");
+            sockCount += 1;
+        }else if(sockCount == 1){
+            // tox data sock connected
+            onNewSock(sock,"DATA");
+            sockCount += 1;
+        }else{
+            // local sock received
+            onNewSock(sock,"LOCAL");
+        }
+        
+    }).listen(localPort);
+}
+
+/**
+ * this function is called when new sock connect to local sock server
+ */
+function onNewSock(sock,type){
+    var mySock = new connectM(database);
+    mySock.from = type;
+    mySock.sock = sock;
+    mySock.objects.save();
+    if(type == "LOCAL"){
+        mySock.sock.on("data",function(data){
+            var cmd = mySock.objects.getInfo();
+            cmd.data = data;
+            onLocalDataReceived(cmd);
+        })
+        
+        mySock.sock.on("error",function(){
+            // delete record
+            closeSock(mySock.uuid);
+        })
+        
+        mySock.sock.on("close",function(){
+            closeSock(mySock.uuid);
+        })
+    }
+    if(type == "CTRL"){
+        mySock.sock.on("data",function(data){
+            try{
+                data = JSON.parse(data)
+            }catch(e){
+                console.log("JOSN Parse Error");
+                return;
+            }
+            
+            if(data == "OK")
+        })
+        
+    }
+    if(type == "DATA"){
+        mySock.sock.on("data",function(data){
+            
+        })
+    }
+}
+
+function closeSock(uuid){
+    
+}
+
+function sendLocalData(uuid,data){
+    
+}
+
+function sendRemoteData(uuid,data){
+    
+}
+
+function sendLocalCmd(cmd){
+    if(command_free_flag == 0){
+        // get ctrl sock
+        var ctrlSock = new connectM(database);
+        ctrlSock = connectM.objects.find("CTRL").sock;
+        // get data sock
+        dataSock = connectM.objects.find("DATA").sock;
+        
+    }
+}
+
+function sendRemoteCmd(cmd){
+    
+}
+
+function onRemoteDataReceived(){
+    
+}
+
+function onRemoteCmdReceived(){
+    
+}
+/**
+ * this function is called when local sock data is received
+ * cmd format
+ * {
+ *  from:
+ *  uuid:
+ *  sock
+ *  data
+ * }
+ */
+function onLocalDataReceived(cmd){
+    // send to toxcore
+    
+}
