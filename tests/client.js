@@ -18,7 +18,7 @@ client.on('data', function(data) {
 
     console.log('DATA: ' + data);
     // 完全关闭连接
-    client.destroy();
+    //client.destroy();
 
 });
 

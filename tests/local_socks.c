@@ -103,6 +103,7 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
 }
 
 void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
+    printf("CLOSING LOCAL SOCKET\n");
     shutdown(sockfd,2);
     if(mlist == NULL)return;
     local_socks_node *temp = mlist->head;
@@ -122,6 +123,30 @@ void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
         return;
     }
 }
+
+void close_local_socks_uuid(local_socks_list *mlist, const uint8_t *uuid){
+    printf("CLOSING LOCAL SOCKET\n");
+    if(mlist == NULL)return;
+    local_socks_node *temp = mlist->head;
+    local_socks *temp_sock;
+    while(temp->after != NULL){
+        temp_sock = temp->me;
+        if(strcmp(temp_sock->uuid,uuid) == 0){
+            shutdown(temp_sock->sock,2);
+            remove_local_socks_list(mlist, temp);
+            return;
+        }
+        temp = temp->after;
+    }
+    // check the last one
+    temp_sock = temp->me;
+    if(strcmp(temp_sock->uuid,uuid) == 0){
+        shutdown(temp_sock->sock,2);
+        remove_local_socks_list(mlist, temp);
+        return;
+    }
+}
+
 
 uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
     if(mlist == NULL)return 0;

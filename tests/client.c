@@ -118,7 +118,10 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *string, uint16_
                                            port_int);
         }
         if(strcmp(cmd_str,"CLOSE_SOCK") == 0){
-            
+            const uint8_t *uuid_str = json_string_value(uuid_json);
+            printf("CLOSE SOCKET:%s\n",uuid_str);
+            int32_t sockfd = get_local_socks(msocks_list,uuid_str);
+            shutdown(sockfd,2);
         }
         
 //             
@@ -461,11 +464,7 @@ void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin){
     const uint8_t *uuid = json_string_value(json_object_get(data_json,"uuid"));
     const uint8_t *data_bin = json_string_value(json_object_get(data_json,"data"));
     uint32_t sockfd = get_local_socks(msocks_list,uuid);
-    // wait sock ready
-    printf("WAITING\n");
-    while(is_local_socks_ready(msocks_list,sockfd) != 1){
-        usleep(100);
-    }
+    
     // send data to target socket
     if(sockfd != 0){
         // record found
@@ -473,6 +472,7 @@ void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin){
         write(sockfd,data_bin,strlen(data_bin));
     }else{
         // socket might be closed
+        printf("INVALID SOCKET, CLOSE IT\n");
         close_remote_socket(uuid,client_id_bin);
         // socket might be create first time
     }
@@ -503,6 +503,7 @@ void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_
     int32_t sockfd = init_local_sock(target_ip,target_port);
     if(sockfd == 0){
         //sock create failed
+        printf("CREATE LOCAL SOCKET FAILED\n");
         close_remote_socket(uuid,target_addr_bin);
         return;
     }
@@ -520,16 +521,26 @@ void *on_local_sock_connect(void *msockfd){
     uint32_t sockfd = *((uint32_t *)msockfd);
     printf("CONNECTED\n");
     const uint8_t *target_addr_bin_temp = get_local_socks_addr_bin(msocks_list,sockfd);
+    printf("OK1\n");
     uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    printf("OK2\n");
+    if(target_addr_bin_temp == NULL){
+        printf("ERROR**********************\n");
+        print_local_socks_list(msocks_list);
+    }
+        
+    uint8_t test[TOX_FRIEND_ADDRESS_SIZE*2+1];
+    hex_bin_to_string(target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE,test);
+    printf("ID:%s\n",test);
     bufcopy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
+    printf("OK3\n");
     const uint8_t *uuid_temp = get_local_socks_uuid(msocks_list,sockfd);
+    printf("OK4\n");
     uint8_t uuid[36];
     strcpy(uuid,uuid_temp);
+    printf("OK5\n");
     uint8_t buf[512];
     int length = 1;
-    // ready flag, Now it's ok to receive remote data
-    printf("SETTING\n");
-    set_local_socks_ready(msocks_list,sockfd);
     while(length > 0){
         bzero(buf,512);
         length = read(sockfd,buf,511);
@@ -539,8 +550,9 @@ void *on_local_sock_connect(void *msockfd){
     }
     // read data error
     // close remote and local sock
+    printf("CLOSING *******************\n");
     close_remote_socket(uuid,target_addr_bin);
-    close_local_socks(msocks_list,sockfd);
+    close_local_socks_uuid(msocks_list,uuid);
     
 }
 
