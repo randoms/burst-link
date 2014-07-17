@@ -43,5 +43,6 @@
  * and write_data_remote will be block at the same time
  */
 void send_data_remote();
-
+void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin);
+void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin);
 #endif
