@@ -458,6 +458,7 @@ void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin){
     json_error_t err;
     json_t *data_json = json_loads(data,0,&err);
     // get sockfd from uuid
+    printf("HELLO\n");
     const uint8_t *uuid = json_string_value(json_object_get(data_json,"uuid"));
     const uint8_t *data_bin = json_string_value(json_object_get(data_json,"data"));
     uint32_t sockfd = get_local_socks(msocks_list,uuid);
