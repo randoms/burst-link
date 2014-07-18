@@ -71,6 +71,9 @@ void print_local_socks_list(local_socks_list *mlist){
         printf("local sockets listener ********\n");
         printf("socket:%d\n",temp_record.sock);
         printf("uuid:%s\n",temp_record.uuid);
+        uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
+        hex_bin_to_string(temp_record.target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,addr_str);
+        printf("target_addr_bin:%s\n",addr_str);
         temp = *(temp.after);
     }
     
@@ -79,6 +82,9 @@ void print_local_socks_list(local_socks_list *mlist){
     printf("local sockets listener ********\n");
     printf("socket:%d\n",temp_record.sock);
     printf("uuid:%s\n",temp_record.uuid);
+    uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
+    hex_bin_to_string(temp_record.target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,addr_str);
+    printf("target_addr_bin:%s\n",addr_str);
     
 }
 
@@ -103,6 +109,7 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
 }
 
 void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
+    printf("CLOSING LOCAL SOCKET\n");
     shutdown(sockfd,2);
     if(mlist == NULL)return;
     local_socks_node *temp = mlist->head;
@@ -122,6 +129,30 @@ void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
         return;
     }
 }
+
+void close_local_socks_uuid(local_socks_list *mlist, const uint8_t *uuid){
+    printf("CLOSING LOCAL SOCKET\n");
+    if(mlist == NULL)return;
+    local_socks_node *temp = mlist->head;
+    local_socks *temp_sock;
+    while(temp->after != NULL){
+        temp_sock = temp->me;
+        if(strcmp(temp_sock->uuid,uuid) == 0){
+            shutdown(temp_sock->sock,2);
+            remove_local_socks_list(mlist, temp);
+            return;
+        }
+        temp = temp->after;
+    }
+    // check the last one
+    temp_sock = temp->me;
+    if(strcmp(temp_sock->uuid,uuid) == 0){
+        shutdown(temp_sock->sock,2);
+        remove_local_socks_list(mlist, temp);
+        return;
+    }
+}
+
 
 uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
     if(mlist == NULL)return 0;
@@ -191,8 +222,8 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
 }
 
 const uint8_t *get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd){
-    if(mlist == NULL)return 0;
-    if(mlist->size == 0)return 0;
+    if(mlist == NULL)return NULL;
+    if(mlist->size == 0)return NULL;
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
@@ -208,7 +239,7 @@ const uint8_t *get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd
         return temp_sock->target_addr_bin;
     }
     // not found set to null
-    return 0;
+    return NULL;
 }
 
 int set_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){

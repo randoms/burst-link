@@ -225,3 +225,124 @@ void bufcopy(uint8_t *target, const uint8_t *origin,uint32_t length){
         target[i] = origin[i];
     }
 }
+
+void buf_to_json_array(json_t *array, const uint8_t *buf, const uint32_t length){
+    uint32_t i = 0;
+    for(i=0;i<length;i++){
+        json_array_append(array,json_pack("i",buf[i]));
+    }
+}
+
+void json_array_to_bin(uint8_t *buf, json_t *array){
+    uint32_t length = (uint32_t)json_array_size(array);
+    int i = 0;
+    for(i=0;i<length;i++){
+        buf[i] = (uint8_t)json_integer_value(json_array_get(array,i));
+    }
+}
+
+void msg_to_bin(uint8_t *bin,const uint8_t *msg){
+    json_error_t err;
+    json_t *msg_json = json_loads(msg,0,&err);
+    json_t *data_json = json_object_get(msg_json,"data");
+    json_t *length_json = json_object_get(msg_json,"length");
+    json_t *cmd_json = json_object_get(msg_json,"cmd");
+    json_t *uuid = json_object_get(msg_json,"uuid");
+    
+    const uint8_t *uuid_str = json_string_value(uuid);
+    bzero(bin,MY_MESSAGE_LENGTH);
+    // add uuid to buf
+    uint32_t i = 0;
+    for(i=0;i<UUID_LENGTH;i++){
+        bin[i] = uuid_str[i];
+    }
+    // add cmd
+    if(cmd_json != NULL){
+        const uint8_t *cmd_str = json_string_value(cmd_json);
+        if(strcmp(cmd_str,"CLOSE_SOCK") == 0)
+            bin[UUID_LENGTH] = 2;
+        if(strcmp(cmd_str,"CREATE_SOCK") == 0)
+            bin[UUID_LENGTH] = 1;
+        // add cmd content to bin
+        const uint8_t *data_str = json_string_value(data_json);
+        for(i=0;i<strlen(data_str);i++){
+            bin[UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + i] = data_str[i];
+        }
+        bin[UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + strlen(data_str)] = '\0';
+    }else{
+        bin[UUID_LENGTH] = 0;
+    }
+    
+    // add message length
+    const uint32_t length = json_integer_value(length_json);
+    uint8_t hight_byte = length/256;
+    uint8_t low_byte = length%256;
+    bin[UUID_LENGTH+1] = hight_byte;
+    bin[UUID_LENGTH+2] = low_byte;
+    
+    // add message content
+    if(cmd_json == NULL){
+        for(i=0;i<length;i++){
+            bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i] = (uint8_t)json_integer_value(json_array_get(data_json,i));
+        }
+    }
+}
+
+void bin_to_msg(uint8_t *msg, const uint8_t *bin){
+    // get uuid
+    uint8_t uuid_str[UUID_LENGTH];
+    uint32_t i =0 ;
+    for(i=0;i<UUID_LENGTH;i++){
+        uuid_str[i] = bin[i];
+    }
+    uuid_str[UUID_LENGTH] = '\0';
+    
+    // add cmd
+    uint8_t *cmd_str;
+    json_t *data_json = NULL;
+    switch(bin[UUID_LENGTH]){
+        case 0:{
+            cmd_str = NULL;
+            break;
+        }
+            
+        case 1:{
+            cmd_str = "CREATE_SOCK";
+            break;
+        }
+            
+        case 2:{
+            cmd_str = "CLOSE_SOCK";
+            break;
+        }
+    }
+    if(bin[UUID_LENGTH] != 0){
+        uint8_t data_str[MY_MESSAGE_LENGTH-UUID_LENGTH-CMD_LENGTH-MESSAGE_LENGTH_BYTE];
+        bzero(data_str,MY_MESSAGE_LENGTH-UUID_LENGTH-CMD_LENGTH-MESSAGE_LENGTH_BYTE);
+        
+        for(i=0;i<MY_MESSAGE_LENGTH-UUID_LENGTH-CMD_LENGTH-MESSAGE_LENGTH_BYTE;i++){
+            data_str[i] = bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i];
+        }
+        data_str[MY_MESSAGE_LENGTH-UUID_LENGTH-CMD_LENGTH-MESSAGE_LENGTH_BYTE] = '\0';
+        data_json = json_pack("s",data_str);
+    }
+    
+    // add length
+    uint8_t hight_byte = bin[UUID_LENGTH+CMD_LENGTH];
+    uint8_t low_byte = bin[UUID_LENGTH+CMD_LENGTH + 1];
+    uint32_t length = hight_byte*256 +low_byte;
+    
+    // add message content
+    if(data_json == NULL){
+        data_json = json_array();
+        for(i=0;i<length;i++){
+            json_array_append(data_json,json_pack("i",bin[i + UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE]));
+        }
+    }
+    json_t *msg_json = json_object();
+    json_object_set(msg_json,"uuid",json_pack("s",uuid_str));
+    json_object_set(msg_json,"data",data_json);
+    json_object_set(msg_json,"cmd",json_pack("s",cmd_str));
+    json_object_set(msg_json,"length",json_pack("i",length));
+    strcpy(msg,json_dumps(msg_json,JSON_INDENT(4)));
+}

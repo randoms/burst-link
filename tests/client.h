@@ -1,6 +1,12 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
+#define SOCK_BUF_SIZE 1024
+#define UUID_LENGTH 36
+#define CMD_LENGTH 1
+#define MESSAGE_LENGTH_BYTE 2
+#define MY_MESSAGE_LENGTH UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + SOCK_BUF_SIZE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,8 +36,6 @@
 #define MAX_MSG_CACHE 128
 
 #define MY_NAME "BurstLink_SERV"
-
-
 
 /**
  * read message from remote message queue, and send to remote
