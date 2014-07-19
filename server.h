@@ -2,7 +2,7 @@
 #define _SERVER_H
 
 #define MY_NAME "BurstLink"
-#define SOCK_BUF_SIZE 1024
+#define SOCK_BUF_SIZE 256
 #define UUID_LENGTH 36
 #define CMD_LENGTH 1
 #define MESSAGE_LENGTH_BYTE 2
@@ -51,4 +51,6 @@
 void send_data_remote();
 void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin);
 void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin);
+void debug_data(const uint8_t *data,uint32_t length);
+void debug_msg_bin(uint8_t *msg_bin);
 #endif

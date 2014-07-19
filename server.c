@@ -30,6 +30,9 @@ int32_t init_req_flag = 0;
 // local sockets
 local_socks_list *msocks_list = NULL;
 uint32_t local_socksfd = 0;
+
+//debug
+int previous = -1;
     
 void error(const char *msg)
 {
@@ -260,30 +263,6 @@ int init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,co
     return init_req_flag;
 }
 
-void on_local_message_received(uint32_t sockfd, uint8_t *msg, uint32_t size){
-    // 请求者模式没有准备好
-    if(init_over_flag != 1 && MODE == 0) return;
-        
-    if(MODE == 1 && init_over_flag == 0){
-        if(strcmp(msg,"INIT_REQ:OK") == 0){
-            tox_send_message(my_tox,FRIEND_NUM,"INIT_REQ:OK",strlen("INIT_REQ:OK"));
-            init_req_flag = 1;
-            init_over_flag = 1;
-        }
-        if(strcmp(msg,"INIT_REQ:ERROR") == 0){
-            tox_send_message(my_tox,FRIEND_NUM,"INIT_REQ:ERROR",strlen("INIT_REQ:ERROR"));
-            init_req_flag = -1;
-            init_over_flag = -1;
-        }
-    }
-    if(MODE == 0 && init_over_flag == 1){
-        tox_send_message(my_tox,FRIEND_NUM,msg,size);
-    }
-    if(MODE == 1 && init_over_flag == 1){
-        tox_send_message(my_tox,FRIEND_NUM,msg,size);
-    }
-    
-}
 
 uint32_t init_local_sock(uint32_t local_port){
     struct sockaddr_in serv_addr;
@@ -356,7 +335,6 @@ void write_data_local(uint8_t *uuid, uint8_t *data, uint32_t length){
  * 
  */
 void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *data, const uint32_t length){
-    
     json_t *uuid_json = json_pack("s",uuid);
     json_t *cmd_json = json_pack("s",cmd);
     json_t *length_json = json_pack("i",length);
@@ -379,7 +357,9 @@ void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *d
     uint8_t *target_addr_bin = hex_string_to_bin(target_id);
     newTask->target_addr_bin = target_addr_bin;
     newTask->msg = msg;
-    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE);
+    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE){
+        usleep(1000);
+    };
     // enter queue
     msg_task_flag = 1;
     Enqueue(msg_task_queue,newTask);
@@ -397,6 +377,20 @@ void send_data_local(){
     
 }
 
+
+void debug_msg_bin(uint8_t *msg_bin){
+    if(msg_bin[UUID_LENGTH] != 0)return;
+    uint8_t hight_byte = msg_bin[UUID_LENGTH+CMD_LENGTH];
+    uint8_t low_byte = msg_bin[UUID_LENGTH+CMD_LENGTH + 1];
+    uint32_t length = hight_byte*256 +low_byte;
+    uint8_t data[length];
+    int i=0;
+    for(i=0;i<length;i++){
+        data[i] = msg_bin[i + UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE];
+    }
+    debug_data(data,length);
+}
+
 /**
  * read message from remote message queue, and send to remote
  * this will only send one message in the message queue
@@ -410,13 +404,43 @@ void send_data_remote(){
         uint8_t bin[MY_MESSAGE_LENGTH];
         msg_to_bin(bin,mTask->msg);
         //tox_send_message(my_tox,friend_num,mTask->msg,strlen(mTask->msg));
-        tox_send_message(my_tox,friend_num,bin,MY_MESSAGE_LENGTH);
-        //printf("SENDING_MESSAGE:%d %s\n",(int)strlen(mTask->msg),mTask->msg);
-        Dequeue(msg_task_queue);
-        free(mTask->target_addr_bin);
-        free(mTask->msg);
+        int res = -1;
+        int retry_count = 0;
+        //debug_msg_bin(bin);
+        while(res <=0 && retry_count <5){
+            res = tox_send_message(my_tox,friend_num,bin,MY_MESSAGE_LENGTH);
+            printf("send message failed\n");
+            retry_count += 1;
+        }
+        if(retry_count >=5){
+            printf("send message failed *********************\n");
+        }else{
+            printf("DATA SEND\n");
+            Dequeue(msg_task_queue);
+            free(mTask->target_addr_bin);
+            free(mTask->msg);
+        }
         msg_task_flag = 0;
     }
+}
+
+void debug_data(const uint8_t *data,uint32_t length){
+    uint32_t i =0;
+    if(previous != -1){
+        if(data[0] != previous +1 && data[0] != 0){
+            printf("%d,%d\n",previous,data[0]);
+            printf("DATA ERROR 1\n");
+            exit(1);
+        }
+    }
+    for(i=0;i<length-1;i++){
+        if(data[i+1] != data[i]+1 && data[i+1] !=0){
+            printf("%d,%d\n",data[i],data[i+1]);
+            printf("DATA ERROR\n");
+            exit(1);
+        }
+    }
+    previous = data[length-1];
 }
 
 /**
@@ -442,6 +466,7 @@ void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
  * }
  */
 void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin){
+    
     json_error_t err;
     json_t *data_json = json_loads(data,0,&err);
     // get sockfd from uuid

@@ -1,7 +1,7 @@
 #ifndef _UTILES_H
 #define _UTILES_H
 
-#define SOCK_BUF_SIZE 1024
+#define SOCK_BUF_SIZE 256
 #define UUID_LENGTH 36
 #define CMD_LENGTH 1
 #define MESSAGE_LENGTH_BYTE 2

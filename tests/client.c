@@ -30,7 +30,10 @@ int32_t init_req_flag = 0;
 // local sockets
 local_socks_list *msocks_list = NULL;
 uint32_t local_socksfd = 0;
-    
+
+//debug data
+int previous = -1;
+
 void error(const char *msg)
 {
     perror(msg);
@@ -86,7 +89,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
             on_hand_shake_reveived(client_id_bin);
             return;
         }
-        
+        //debug_msg_bin(bin);
         uint8_t string[16384];
         bin_to_msg(string,bin);
         
@@ -419,7 +422,9 @@ void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, cons
     bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     newTask->target_addr_bin = mtarget_addr_bin;
     newTask->msg = msg;
-    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE);
+    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE){
+        usleep(1000);
+    };
     // enter queue
     msg_task_flag = 1;
     Enqueue(msg_task_queue,newTask);
@@ -451,12 +456,22 @@ void send_data_remote(){
         hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,addr_str);
         uint8_t bin[MY_MESSAGE_LENGTH];
         msg_to_bin(bin,mTask->msg);
-        tox_send_message(my_tox,friend_num,bin,MY_MESSAGE_LENGTH);
-        //tox_send_message(my_tox,friend_num,mTask->msg,strlen(mTask->msg));
-        //printf("SENDING_MESSAGE:%d %s\n",(int)strlen(mTask->msg),mTask->msg);
-        Dequeue(msg_task_queue);
-        free(mTask->target_addr_bin);
-        free(mTask->msg);
+        int res = -1;
+        int retry_count = 0;
+        
+        while(res <=0 && retry_count <5){
+            res = tox_send_message(my_tox,friend_num,bin,MY_MESSAGE_LENGTH);
+            usleep(100);
+            retry_count += 1;
+        }
+        if(retry_count >=5){
+            printf("send message failed\n");
+        }else{
+            printf("DATA SEND\n");
+            Dequeue(msg_task_queue);
+            free(mTask->target_addr_bin);
+            free(mTask->msg);
+        }
         msg_task_flag = 0;
     }
 }
@@ -630,4 +645,37 @@ int main(int argc, char *argv[])
     }
     
     return 0; 
+}
+
+
+void debug_msg_bin(const uint8_t *msg_bin){
+    if(msg_bin[UUID_LENGTH] != 0)return;
+    uint8_t hight_byte = msg_bin[UUID_LENGTH+CMD_LENGTH];
+    uint8_t low_byte = msg_bin[UUID_LENGTH+CMD_LENGTH + 1];
+    uint32_t length = hight_byte*256 +low_byte;
+    uint8_t data[length];
+    int i=0;
+    for(i=0;i<length;i++){
+        data[i] = msg_bin[i + UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE];
+    }
+    debug_data(data,length);
+}
+
+void debug_data(const uint8_t *data,uint32_t length){
+    uint32_t i =0;
+    if(previous != -1){
+        if(data[0] != previous +1 && data[0] != 0){
+            printf("%d,%d\n",previous,data[0]);
+            printf("DATA ERROR 1\n");
+            exit(1);
+        }
+    }
+    for(i=0;i<length-1;i++){
+        if(data[i+1] != data[i]+1 && data[i+1] !=0){
+            printf("%d,%d\n",data[i],data[i+1]);
+            printf("DATA ERROR\n");
+            exit(1);
+        }
+    }
+    previous = data[length-1];
 }

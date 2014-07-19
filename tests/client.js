@@ -8,19 +8,21 @@ client.connect(PORT, HOST, function() {
 
     console.log('CONNECTED TO: ' + HOST + ':' + PORT);
     // 建立连接后立即向服务器发送数据，服务器将收到这些数据
-    var buf = new Buffer(6);
-    for(var i=0;i<6;i++){
-        buf[i] = i;
-    }
-    client.write(buf);
+    setInterval(function(){
+        var buf = new Buffer(1024);
+        for(var i=0;i<1024;i++){
+            buf[i] = i;
+        }
+        client.write(buf);
+        console.log("writing");
+    },5);
 
 });
 
 // 为客户端添加“data”事件处理函数
 // data是服务器发回的数据
 client.on('data', function(data) {
-
-    console.log(JSON.stringify(data));
+    console.log(data);
     // 完全关闭连接
     //client.destroy();
 

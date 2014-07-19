@@ -1,7 +1,7 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
-#define SOCK_BUF_SIZE 1024
+#define SOCK_BUF_SIZE 256
 #define UUID_LENGTH 36
 #define CMD_LENGTH 1
 #define MESSAGE_LENGTH_BYTE 2
@@ -50,4 +50,6 @@ void on_init_req_received(const uint8_t *target_addr_bin);
 void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin);
 void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_t *uuid, const uint8_t *target_ip, uint32_t target_port);
 void *on_local_sock_connect(void *msockfd);
+void debug_data(const uint8_t *data,uint32_t length);
+void debug_msg_bin(const uint8_t *msg_bin);
 #endif
