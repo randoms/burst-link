@@ -25,7 +25,7 @@
 #define FALSE 0
 #define FRADDR_TOSTR_CHUNK_LEN 8
 #define FRADDR_TOSTR_BUFSIZE (TOX_FRIEND_ADDRESS_SIZE * 2 + TOX_FRIEND_ADDRESS_SIZE / FRADDR_TOSTR_CHUNK_LEN + 1)
-char *hex_string_to_bin(const char *hex_string);
+char *hex_string_to_bin(uint8_t *bin, const char *hex_string);
 void hexid_to_str(uint8_t *id_bin, uint8_t *id_str);
 void fraddr_to_str(uint8_t *id_bin, char *id_str);
 void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str);

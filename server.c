@@ -512,7 +512,8 @@ void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,cons
 
 void *on_local_sock_connect(void *msockfd){
     uint32_t sockfd = *((uint32_t *)msockfd);
-    uint8_t *target_addr_bin = hex_string_to_bin(target_id);
+    uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+    hex_string_to_bin(target_addr_bin,target_id);
     add_local_socks(msocks_list,sockfd,target_addr_bin,target_ip,target_port);
     printf("CONNECTED\n");
     // create remote socket
@@ -534,8 +535,8 @@ void *on_local_sock_connect(void *msockfd){
     // close remote and local sock
     close(sockfd);
     close_remote_socket(uuid,target_addr_bin);
-    //free(target_addr_bin);
-    //close_local_socks(msocks_list,sockfd);
+    free(target_addr_bin);
+    close_local_socks(msocks_list,sockfd);
     
 }
 

@@ -1,20 +1,20 @@
 #include "utils.h"
 
-char *hex_string_to_bin(const char *hex_string)
+char *hex_string_to_bin(uint8_t *bin, const char *hex_string)
 {
     size_t len = strlen(hex_string);
-    char *val = malloc(len);
+    char *bin = malloc(len);
 
-    if (val == NULL){
+    if (bin == NULL){
 //         printf("transform failed");
     }
 
     size_t i;
 
     for (i = 0; i < len; ++i, hex_string += 2)
-        sscanf(hex_string, "%2hhx", &val[i]);
+        sscanf(hex_string, "%2hhx", &bin[i]);
 
-    return val;
+    return bin;
 }
 
 void fraddr_to_str(uint8_t *id_bin, char *id_str)

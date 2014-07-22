@@ -1,6 +1,7 @@
 #ifndef _LOCAL_SOCKS_H
 #define _LOCAL_SOCKS_H
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include "defines.h"
 #include "toxcore/tox.h"
 
 typedef struct local_socks{

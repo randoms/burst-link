@@ -1,8 +1,9 @@
 #ifndef _QUEUE_H
 #define _QUEUE_H
 
-#include<stdio.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "defines.h"
 #include "toxcore/tox.h"
 
 typedef struct MSGTask {
