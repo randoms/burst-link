@@ -111,7 +111,6 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
                 int32_t sockfd = get_local_socks(msocks_list,uuid);
-                printf("%d\n",sockfd);
                 shutdown(sockfd,2);
             }
         }
@@ -300,7 +299,7 @@ void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *d
     hex_string_to_bin(target_addr_bin, target_id);
     newTask->target_addr_bin = target_addr_bin;
     newTask->msg = msg_bin;
-    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE){
+    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE - 10){
         usleep(1000);
     };
     // enter queue
@@ -350,6 +349,7 @@ void send_data_remote(){
         int res = -1;
         int retry_count = 0;
         //debug_msg_bin(bin);
+       
         while(res <=0 && retry_count <5){
             res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
             retry_count += 1;
@@ -416,7 +416,7 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
     }else{
         // socket might be closed
         printf("INVALID SOCKET, CLOSE IT\n");
-        close_remote_socket(uuid,client_id_bin);
+        //close_remote_socket(uuid,client_id_bin);
     }
 }
 
@@ -468,8 +468,8 @@ void *on_local_sock_connect(void *msockfd){
     // read data error
     // close remote and local sock
     close(sockfd);
-    close_local_socks(msocks_list,sockfd);
     close_remote_socket(uuid,target_addr_bin);
+    close_local_socks(msocks_list,sockfd);
     free(target_addr_bin);
 }
 
@@ -551,7 +551,6 @@ int main(int argc, char *argv[])
         uint32_t newsockfd = accept(local_socksfd, 
                     (struct sockaddr *) &cli_addr, 
                     &clilen);
-        printf("NEWFD:%d\n",newsockfd);
         if (newsockfd < 0){
             printf("LOCAL_SOCK:ERROR\n");
             continue;

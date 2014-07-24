@@ -112,7 +112,6 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
                 int32_t sockfd = get_local_socks(msocks_list,uuid);
-                printf("%d\n",sockfd);
                 shutdown(sockfd,2);
             }else if(strcmp(cmd, "CREATE_SOCK") == 0){
                 printf("CREATE SOCKET\n");
@@ -304,7 +303,7 @@ void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, cons
     bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     newTask->target_addr_bin = mtarget_addr_bin;
     newTask->msg = msg_bin;
-    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE){
+    while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE-10){
         usleep(1000);
     };
     // enter queue
