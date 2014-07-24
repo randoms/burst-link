@@ -1,7 +1,6 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-#define MY_NAME "BurstLink"
 #define SOCK_BUF_SIZE 1024
 #define UUID_LENGTH 36
 #define CMD_LENGTH 1

@@ -11,11 +11,16 @@ local_socks_list *create_local_socks_list(){
 local_socks_node *add_local_socks_list(local_socks_list *mlist, local_socks *mlocal_socks){
     // add a new record to the head of list
     local_socks *new_record = (local_socks *)malloc(sizeof(local_socks));
-    new_record->uuid = mlocal_socks->uuid;
+    
+    // 开辟内存复制值
+    new_record->uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
+    bufcopy(new_record->uuid,mlocal_socks->uuid,UUID_LENGTH);
     new_record->sock = mlocal_socks->sock;
     new_record->target_port = mlocal_socks->target_port;
-    new_record->target_ip = mlocal_socks->target_ip;
-    new_record->target_addr_bin = mlocal_socks->target_addr_bin;
+    new_record->target_ip = (uint8_t *)malloc(sizeof(uint8_t)*4);
+    bufcopy(new_record->target_ip,mlocal_socks->target_ip,4);
+    new_record->target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+    bufcopy(new_record->target_addr_bin,mlocal_socks->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     
     local_socks_node *new_header = (local_socks_node *)malloc(sizeof(local_socks_node));
     new_header->previous = NULL;
@@ -71,9 +76,6 @@ void print_local_socks_list(local_socks_list *mlist){
         printf("local sockets listener ********\n");
         printf("socket:%d\n",temp_record.sock);
         printf("uuid:%s\n",temp_record.uuid);
-        uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
-        hex_bin_to_string(temp_record.target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,addr_str);
-        printf("target_addr_bin:%s\n",addr_str);
         temp = *(temp.after);
     }
     
@@ -82,34 +84,31 @@ void print_local_socks_list(local_socks_list *mlist){
     printf("local sockets listener ********\n");
     printf("socket:%d\n",temp_record.sock);
     printf("uuid:%s\n",temp_record.uuid);
-    uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
-    hex_bin_to_string(temp_record.target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,addr_str);
-    printf("target_addr_bin:%s\n",addr_str);
     
 }
 
 void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *target_addr_bin, const uint8_t *target_ip, uint32_t target_port){
     local_socks *mlocal_socks = (local_socks *)malloc(sizeof(local_socks));
-    uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*36);
-    uint8_t *mtarget_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-    bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
-    uint8_t *mtarget_ip = (uint8_t *)malloc(sizeof(uint8_t)*16);
-    bufcopy(mtarget_ip,target_ip,strlen(target_ip));
+    uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
     uuid_t muuid;
     uuid_generate(muuid);
     uuid_unparse(muuid,uuid_str);
     mlocal_socks->uuid = uuid_str;
     mlocal_socks->sock = sockfd;
     mlocal_socks->ready_flag = 0;
+    uint8_t mtarget_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     mlocal_socks->target_addr_bin = mtarget_addr_bin;
-    mlocal_socks->target_ip = mtarget_ip;
+    uint8_t mip[4];
+    bufcopy(mip,target_ip,4);
+    mlocal_socks->target_ip = mip;
     mlocal_socks->target_port = target_port;
     add_local_socks_list(mlist,mlocal_socks);
+    free(uuid_str);
     free(mlocal_socks);
 }
 
 void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
-    printf("CLOSING LOCAL SOCKET\n");
     shutdown(sockfd,2);
     if(mlist == NULL)return;
     local_socks_node *temp = mlist->head;
@@ -129,30 +128,6 @@ void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
         return;
     }
 }
-
-void close_local_socks_uuid(local_socks_list *mlist, const uint8_t *uuid){
-    printf("CLOSING LOCAL SOCKET\n");
-    if(mlist == NULL)return;
-    local_socks_node *temp = mlist->head;
-    local_socks *temp_sock;
-    while(temp->after != NULL){
-        temp_sock = temp->me;
-        if(strcmp(temp_sock->uuid,uuid) == 0){
-            shutdown(temp_sock->sock,2);
-            remove_local_socks_list(mlist, temp);
-            return;
-        }
-        temp = temp->after;
-    }
-    // check the last one
-    temp_sock = temp->me;
-    if(strcmp(temp_sock->uuid,uuid) == 0){
-        shutdown(temp_sock->sock,2);
-        remove_local_socks_list(mlist, temp);
-        return;
-    }
-}
-
 
 uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
     if(mlist == NULL)return 0;
@@ -239,6 +214,8 @@ const uint8_t *get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd
         return temp_sock->target_addr_bin;
     }
     // not found set to null
+    printf("NOT FOUND\n");
+    printf("TARGET:%d\n",sockfd);
     return NULL;
 }
 
@@ -289,10 +266,16 @@ int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
 // int main(void){
 //     local_socks_list *mlist = create_local_socks_list();
 //     while(1){
-//         add_local_socks(mlist,21321);
-//         add_local_socks(mlist,12321);
+//         uint8_t *bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(bin,TOX_FRIEND_ADDRESS_SIZE);
+//         uint8_t *ip = (uint8_t *)malloc(sizeof(uint8_t)*4);
+//         bzero(ip,4);
+//         add_local_socks(mlist,21321,bin,ip,22);
+//         add_local_socks(mlist,12321,bin,ip,22);
 //         close_local_socks(mlist,12321);
 //         close_local_socks(mlist,21321);
+//         free(bin);
+//         free(ip);
 //         usleep(10);
 //     }
 //     

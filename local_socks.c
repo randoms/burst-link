@@ -263,20 +263,20 @@ int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
     return 0;
 }
 
-int main(void){
-    local_socks_list *mlist = create_local_socks_list();
-    while(1){
-        uint8_t *bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-        bzero(bin,TOX_FRIEND_ADDRESS_SIZE);
-        uint8_t *ip = (uint8_t *)malloc(sizeof(uint8_t)*4);
-        bzero(ip,4);
-        add_local_socks(mlist,21321,bin,ip,22);
-        add_local_socks(mlist,12321,bin,ip,22);
-        close_local_socks(mlist,12321);
-        close_local_socks(mlist,21321);
-        free(bin);
-        free(ip);
-        usleep(10);
-    }
-    
-}
+// int main(void){
+//     local_socks_list *mlist = create_local_socks_list();
+//     while(1){
+//         uint8_t *bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(bin,TOX_FRIEND_ADDRESS_SIZE);
+//         uint8_t *ip = (uint8_t *)malloc(sizeof(uint8_t)*4);
+//         bzero(ip,4);
+//         add_local_socks(mlist,21321,bin,ip,22);
+//         add_local_socks(mlist,12321,bin,ip,22);
+//         close_local_socks(mlist,12321);
+//         close_local_socks(mlist,21321);
+//         free(bin);
+//         free(ip);
+//         usleep(10);
+//     }
+//     
+// }

@@ -1,12 +1,6 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
-#define SOCK_BUF_SIZE 256
-#define UUID_LENGTH 36
-#define CMD_LENGTH 1
-#define MESSAGE_LENGTH_BYTE 2
-#define MY_MESSAGE_LENGTH UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + SOCK_BUF_SIZE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +17,9 @@
 #include <jansson.h>
 
 #include "toxcore/tox.h"
+#include "defines.h"
 #include "utils/utils.h"
 #include "queue.h"
-#include "route.h"
 #include "message_listener.h"
 #include "connect.h"
 #include "local_socks.h"
@@ -47,7 +41,7 @@ void send_data_remote();
 void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin);
 void on_hand_shake_reveived(const uint8_t *target_addr_bin);
 void on_init_req_received(const uint8_t *target_addr_bin);
-void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin);
+void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uint32_t length, const uint8_t *client_id_bin);
 void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_t *uuid, const uint8_t *target_ip, uint32_t target_port);
 void *on_local_sock_connect(void *msockfd);
 void debug_data(const uint8_t *data,uint32_t length);

@@ -79,14 +79,11 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t length, void *userdata) {
     
     uint8_t client_id_bin[TOX_CLIENT_ID_SIZE];
-    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
+    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
     tox_get_client_id(m,friendnumber,client_id_bin);
     hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
     trigger_msg_listener(msg_listener_list,bin,client_id_str);
-    //trigger_msg_listener_debug(msg_listener_list,bin,client_id_str,local_socksfd);
-    // 添加消息隊列消息
-    // 服务端模式处理
     if(MODE == 1){
         
     }
@@ -95,33 +92,35 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
     if(MODE == 0){
         
         if(strcmp(bin,"HANDSHAKE") == 0){
+            printf("HANDSHAKE RECEIVED\n");
             return;
         }
         
         // parse message
-        uint8_t string[16384];
-        bin_to_msg(string,bin);
-        json_error_t err;
-        json_t *msg_json = json_loads(string,0,&err);
-        if(msg_json == NULL)
-            return;
-        json_t *uuid_json = json_object_get(msg_json,"uuid");
-        if(uuid_json == NULL)
-            return;
-        json_t *cmd_json = json_object_get(msg_json,"cmd");
-        if(cmd_json == NULL){
-            on_remote_data_received(string,client_id_bin);
-            return;
+        uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
+        uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
+        uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
+        uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
+        unpack_msg_bin(bin, uuid, cmd, data, length);
+        
+        if(strcmp(cmd,"UNKNOWN_CMD") == 0){
+            
+        }else if(strcmp(cmd,"RAW_DATA") == 0){
+            on_remote_data_received(uuid, data, *length, client_id_bin);
+        }else{
+            printf("CMD:%s\n",cmd);
+            if(strcmp(cmd,"CLOSE_SOCK") == 0){
+                int32_t sockfd = get_local_socks(msocks_list,uuid);
+                printf("%d\n",sockfd);
+                shutdown(sockfd,2);
+            }
         }
-        printf("CMD:%s\n",string);
-        const uint8_t *cmd_str = json_string_value(cmd_json);
-        if(strcmp(cmd_str,"CLOSE_SOCK") == 0){
-            const uint8_t *uuid_str = json_string_value(uuid_json);
-            printf("CLOSE SOCKET:%s\n",uuid_str);
-            int32_t sockfd = get_local_socks(msocks_list,uuid_str);
-            printf("%d\n",sockfd);
-            shutdown(sockfd,2);
-        }
+        
+        // free data
+        free(uuid);
+        free(cmd);
+        free(data);
+        free(length);
     }
 }
 
@@ -174,7 +173,8 @@ static Tox *init_tox()
 
 int init_tox_connection(Tox *m)
 {
-    uint8_t *pub_key = hex_string_to_bin(BOOTSTRAP_KEY);
+    uint8_t pub_key[TOX_FRIEND_ADDRESS_SIZE];
+    hex_string_to_bin(pub_key, BOOTSTRAP_KEY);
     int res = tox_bootstrap_from_address(m, BOOTSTRAP_ADDRESS, 0, htons(BOOTSTRAP_PORT), pub_key);
     if (!res) {
         exit(1);
@@ -204,7 +204,7 @@ void *tox_works(){
         if(msg_task_queue->size != 0 && msg_task_flag == 0){
             send_data_remote();
         }else{
-            usleep(40000);
+            usleep(4000);
         }
     }
 }
@@ -217,51 +217,6 @@ void intHandler(int dummy) {
     exit(EXIT_SUCCESS);
 }
 
-/**
- * send target ip and port to remote
- * return 0 timeout
- * return 1 success
- * return -1 error
- */
-int init_req_mode(Tox *m,const uint8_t *address_str, const uint8_t *target_ip,const uint32_t target_port){
-    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
-    address_str_to_client_str(address_str,client_id_str);
-    uint16_t friendnum = tox_get_friend_number(m,hex_string_to_bin(client_id_str));
-    if(friendnum == -1){
-//         write_local_message(local_socksfd,"401");
-        exit(1);
-    }
-//     write_local_message(local_socksfd,"START INIT_REQ ...");
-    json_t *res = json_object();
-    int32_t err;
-    err = json_object_set(res,"TARGET_IP",json_string(target_ip));
-    mjson_error(err);
-    err = json_object_set(res,"PORT",json_integer((int)target_port));
-    mjson_error(err);
-    uint8_t response[1024];
-    response[0] = '\0';
-    strcat(response,"INIT_REQ:");
-    strcat(response,json_dumps(res,JSON_INDENT(4)));
-    int init_res = tox_send_message(m,friendnum,response,strlen(response));
-    
-    if(init_res < 0){
-//         write_local_message(local_socksfd,"401");
-        init_req_flag = -1;
-        return -1;
-    }
-    
-    // wait init req over
-    uint8_t i = 0;
-    while(init_req_flag == 0 && i<100){
-        usleep(200000);
-        i++;
-    }
-    if(i>100){
-        // time out
-        return 0;
-    }
-    return init_req_flag;
-}
 
 
 uint32_t init_local_sock(uint32_t local_port){
@@ -335,28 +290,16 @@ void write_data_local(uint8_t *uuid, uint8_t *data, uint32_t length){
  * 
  */
 void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *data, const uint32_t length){
-    json_t *uuid_json = json_pack("s",uuid);
-    json_t *cmd_json = json_pack("s",cmd);
-    json_t *length_json = json_pack("i",length);
-    json_t *msg_json = json_object();
-    json_object_set(msg_json,"uuid",uuid_json);
-    json_object_set(msg_json,"length",length_json);
-    json_t *data_json;
-    if(cmd != NULL){
-        json_object_set(msg_json,"cmd",cmd_json);
-        data_json = json_pack("s",data);
-    }else{
-        data_json = json_array();
-        buf_to_json_array(data_json,data,length);
-    }
-    json_object_set(msg_json,"data",data_json);
+    // pack msg to bin
+    uint8_t *msg_bin = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
+    pack_msg_bin(msg_bin, uuid, cmd, data, length);
     
-    uint8_t *msg = json_dumps(msg_json,JSON_INDENT(4));
     // add msg to message queue
     MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
-    uint8_t *target_addr_bin = hex_string_to_bin(target_id);
+    uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+    hex_string_to_bin(target_addr_bin, target_id);
     newTask->target_addr_bin = target_addr_bin;
-    newTask->msg = msg;
+    newTask->msg = msg_bin;
     while(msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE){
         usleep(1000);
     };
@@ -364,7 +307,10 @@ void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *d
     msg_task_flag = 1;
     Enqueue(msg_task_queue,newTask);
     msg_task_flag = 0;
+    
     // free space
+    free(msg_bin);
+    free(target_addr_bin);
     free(newTask);
 }
 
@@ -401,24 +347,17 @@ void send_data_remote(){
         msg_task_flag = 1;
         MSGTask *mTask = front(msg_task_queue); // 开始处理
         int friend_num = tox_get_friend_number(my_tox,mTask->target_addr_bin);
-        uint8_t bin[MY_MESSAGE_LENGTH];
-        msg_to_bin(bin,mTask->msg);
-        //tox_send_message(my_tox,friend_num,mTask->msg,strlen(mTask->msg));
         int res = -1;
         int retry_count = 0;
         //debug_msg_bin(bin);
         while(res <=0 && retry_count <5){
-            res = tox_send_message(my_tox,friend_num,bin,MY_MESSAGE_LENGTH);
-            printf("send message failed\n");
+            res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
             retry_count += 1;
         }
         if(retry_count >=5){
-            printf("send message failed *********************\n");
+            //printf("send message failed\n");
         }else{
-            printf("DATA SEND\n");
             Dequeue(msg_task_queue);
-            free(mTask->target_addr_bin);
-            free(mTask->msg);
         }
         msg_task_flag = 0;
     }
@@ -465,29 +404,20 @@ void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
  *  cmd
  * }
  */
-void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin){
-    
-    json_error_t err;
-    json_t *data_json = json_loads(data,0,&err);
+void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uint32_t length, const uint8_t *client_id_bin){
     // get sockfd from uuid
-    const uint8_t *uuid = json_string_value(json_object_get(data_json,"uuid"));
-    const uint32_t length = json_integer_value(json_object_get(data_json,"length"));
-    uint8_t data_bin[2048];
-    json_array_to_bin(data_bin,json_object_get(data_json,"data"));
+    
     uint32_t sockfd = get_local_socks(msocks_list,uuid);
     
     // send data to target socket
     if(sockfd != 0){
         // record found
-        printf("WRITING DATA:%d\n",length);
-        write(sockfd,data_bin,length);
+        write(sockfd,data,length);
     }else{
         // socket might be closed
         printf("INVALID SOCKET, CLOSE IT\n");
         close_remote_socket(uuid,client_id_bin);
-        // socket might be create first time
     }
-    json_decref(data_json);
 }
 
 
@@ -508,6 +438,11 @@ void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,cons
     uint8_t *data_str = json_dumps(data,JSON_INDENT(4));
     write_data_remote(uuid,"CREATE_SOCK",data_str,strlen(data_str));
     
+    // release data
+    json_decref(target_port_json);
+    json_decref(target_ip_json);
+    json_decref(data);
+    free(data_str);
 }
 
 void *on_local_sock_connect(void *msockfd){
@@ -517,15 +452,14 @@ void *on_local_sock_connect(void *msockfd){
     add_local_socks(msocks_list,sockfd,target_addr_bin,target_ip,target_port);
     printf("CONNECTED\n");
     // create remote socket
-    const uint8_t *uuid_temp = get_local_socks_uuid(msocks_list,sockfd);
-    uint8_t uuid[36];
-    strcpy(uuid,uuid_temp);
+    const uint8_t *uuid = get_local_socks_uuid(msocks_list,sockfd);
     create_remote_socket(uuid,target_addr_bin,target_ip,target_port);
     uint8_t buf[SOCK_BUF_SIZE];
     int length = 1;
     while(length > 0){
         bzero(buf,SOCK_BUF_SIZE);
         length = read(sockfd,buf,SOCK_BUF_SIZE-1);
+        
         if(length > 0){
             on_local_data_received(buf,length,sockfd);
         }
@@ -534,10 +468,9 @@ void *on_local_sock_connect(void *msockfd){
     // read data error
     // close remote and local sock
     close(sockfd);
+    close_local_socks(msocks_list,sockfd);
     close_remote_socket(uuid,target_addr_bin);
     free(target_addr_bin);
-    close_local_socks(msocks_list,sockfd);
-    
 }
 
 
@@ -545,6 +478,7 @@ int main(int argc, char *argv[])
 {
     // 添加系统事件监听
     signal(SIGINT, intHandler);
+    signal(SIGPIPE, SIG_IGN);
     my_tox = init_tox();
     init_tox_connection(my_tox);
     load_data(my_tox);
@@ -628,5 +562,6 @@ int main(int argc, char *argv[])
         pthread_create( &new_sock_thread, NULL, on_local_sock_connect,&newsockfd);
     }
     
+    printf("EXITED\n");
     return 0; 
 }

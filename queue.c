@@ -46,7 +46,7 @@ MSGTask *front(Queue *Q)
         if(Q->size==0)
         {
                 printf("Queue is Empty\n");
-                exit(0);
+                return;
         }
         /* Return the element which is at the front*/
         return &(Q->elements[Q->front]);
@@ -77,34 +77,36 @@ void Enqueue(Queue *Q,MSGTask *element)
         }
         return;
 }
-int main()
-{
-    Queue *Q = createQueue(5);
-    while(1){
-        MSGTask *task1, *task2;
-        task1 = (MSGTask *)malloc(sizeof(MSGTask));
-        task1->sock = 1;
-        task1->msg = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-        bzero(task1->msg,TOX_FRIEND_ADDRESS_SIZE);
-        task2 = (MSGTask *)malloc(sizeof(MSGTask));
-        task2->sock = 2;
-        task2->msg = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-        bzero(task2->msg,TOX_FRIEND_ADDRESS_SIZE);
-        Enqueue(Q,task1);
-        Enqueue(Q,task2);
-        MSGTask *task3 = front(Q);
-        printf("Front element is %d\n",task3->sock);
-        Enqueue(Q,task2);
-        Dequeue(Q);
-        task3 = front(Q);
-        printf("Front element is %d\n",task3->sock);
-        Dequeue(Q);
-        Dequeue(Q);
-        free(task1->msg);
-        free(task1);
-        free(task2->msg);
-        free(task2);
-        usleep(1000);
-    }
-        
-}
+// int main()
+// {
+//     Queue *Q = createQueue(5);
+//     while(1){
+//         MSGTask *task1, *task2;
+//         task1 = (MSGTask *)malloc(sizeof(MSGTask));
+//         task1->target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(task1->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
+//         task1->msg = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(task1->msg,TOX_FRIEND_ADDRESS_SIZE);
+//         task2 = (MSGTask *)malloc(sizeof(MSGTask));
+//         task2->target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(task2->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
+//         task2->msg = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+//         bzero(task2->msg,TOX_FRIEND_ADDRESS_SIZE);
+//         Enqueue(Q,task1);
+//         Enqueue(Q,task2);
+//         MSGTask *task3 = front(Q);
+//         
+//         Enqueue(Q,task2);
+//         Dequeue(Q);
+//         task3 = front(Q);
+//         
+//         Dequeue(Q);
+//         Dequeue(Q);
+//         free(task1->msg);
+//         free(task1);
+//         free(task2->msg);
+//         free(task2);
+//         usleep(1000);
+//     }
+//         
+// }

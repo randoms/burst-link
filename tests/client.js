@@ -14,7 +14,6 @@ client.connect(PORT, HOST, function() {
             buf[i] = i;
         }
         client.write(buf);
-        console.log("writing");
     },5);
 
 });

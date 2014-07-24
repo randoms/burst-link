@@ -1,12 +1,6 @@
 #ifndef _UTILES_H
 #define _UTILES_H
 
-#define SOCK_BUF_SIZE 256
-#define UUID_LENGTH 36
-#define CMD_LENGTH 1
-#define MESSAGE_LENGTH_BYTE 2
-#define MY_MESSAGE_LENGTH UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + SOCK_BUF_SIZE
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,12 +14,14 @@
 #include <netdb.h> 
 #include <jansson.h>
 #include "../toxcore/tox.h"
+#include "../defines.h"
 
 #define TRUE 1
 #define FALSE 0
 #define FRADDR_TOSTR_CHUNK_LEN 8
 #define FRADDR_TOSTR_BUFSIZE (TOX_FRIEND_ADDRESS_SIZE * 2 + TOX_FRIEND_ADDRESS_SIZE / FRADDR_TOSTR_CHUNK_LEN + 1)
-char *hex_string_to_bin(const char *hex_string);
+
+char *hex_string_to_bin(uint8_t *bin, const char *hex_string);
 void hexid_to_str(uint8_t *id_bin, uint8_t *id_str);
 void fraddr_to_str(uint8_t *id_bin, char *id_str);
 void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str);
@@ -37,8 +33,10 @@ int store_data(Tox *m);
 void write_local_message(uint32_t sockfd, const uint8_t *msg);
 void printf_local_message(uint32_t sockfd, const uint8_t* format, uint32_t data);
 void bufcopy(uint8_t *target,const uint8_t *origin,uint32_t length);
-void buf_to_json_array(json_t *array, const uint8_t *buf, const uint32_t length);
-void json_array_to_bin(uint8_t *buf, json_t *array);
-void msg_to_bin(uint8_t *bin, const uint8_t *msg);
-void bin_to_msg(uint8_t *msg, const uint8_t *bin);
+// void buf_to_json_array(json_t *array, const uint8_t *buf, const uint32_t length);
+// void json_array_to_bin(uint8_t *buf, json_t *array);
+// void msg_to_bin(uint8_t *bin, const uint8_t *msg);
+// void bin_to_msg(uint8_t *msg, const uint8_t *bin);
+void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, const uint8_t *data, const uint32_t length);
+void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t *data, uint32_t *length);
 #endif

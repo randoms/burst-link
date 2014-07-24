@@ -41,7 +41,7 @@ net.createServer(function(sock) {
             }
         }
         databefore = data[data.length-1];
-        //sock.write(data);
+        sock.write(data);
     });
 
     // 为这个socket实例添加一个"close"事件处理函数

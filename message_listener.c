@@ -159,12 +159,6 @@ void trigger_msg_listener_debug(Msg_listener_list *msg_listener_list,const uint8
     }
     // check the last one
     temp_lisener = temp->me;
-    write_local_message(sockfd,"start");
-    write_local_message(sockfd,temp_lisener->msg);
-    write_local_message(sockfd,msg);
-    write_local_message(sockfd,temp_lisener->id);
-    write_local_message(sockfd,id);
-    write_local_message(sockfd,"end");
     if(strcmp(temp_lisener->msg,msg) == 0 && strcmp(temp_lisener->id,id) == 0){
         // already added
         temp_lisener->is_received = 1;
@@ -174,16 +168,20 @@ void trigger_msg_listener_debug(Msg_listener_list *msg_listener_list,const uint8
 
 // int main(void){
 //     Msg_listener_list *msg_listener_list = NULL;
+//     while(1){
+//         is_message_received(&msg_listener_list, "HELLO","one");
+//         is_message_received(&msg_listener_list,"HELLO","two");
+//         msg_listener_list->size;
+//         //print_msg_listener_list(msg_listener_list);
+//         int res = is_message_received(&msg_listener_list,"HELLO","two");
+//         //printf("two:%d\n",res);
+//         trigger_msg_listener(msg_listener_list,"HELLO","two");
+//         res = is_message_received(&msg_listener_list,"HELLO","two");
+//         //printf("two:%d\n",res);
+//         res = is_message_received(&msg_listener_list,"HELLO","two");
+//         //printf("two:%d\n",res);
+//         usleep(1000);
+//     }
 //     
-//     is_message_received(&msg_listener_list, "HELLO","one");
-//     is_message_received(&msg_listener_list,"HELLO","two");
-//     msg_listener_list->size;
-//     print_msg_listener_list(msg_listener_list);
-//     int res = is_message_received(&msg_listener_list,"HELLO","two");
-//     printf("two:%d\n",res);
-//     trigger_msg_listener(msg_listener_list,"HELLO","two");
-//     res = is_message_received(&msg_listener_list,"HELLO","two");
-//     printf("two:%d\n",res);
-//     res = is_message_received(&msg_listener_list,"HELLO","two");
-//     printf("two:%d\n",res);
+//     
 // }

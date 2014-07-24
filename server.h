@@ -19,8 +19,8 @@
 
 #include "toxcore/tox.h"
 #include "utils/utils.h"
+#include "defines.h"
 #include "queue.h"
-#include "route.h"
 #include "message_listener.h"
 #include "connect.h"
 #include "local_socks.h"
@@ -40,7 +40,7 @@
  */
 void send_data_remote();
 void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin);
-void on_remote_data_received(const uint8_t *data, const uint8_t *client_id_bin);
+void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uint32_t length, const uint8_t *client_id_bin);
 void debug_data(const uint8_t *data,uint32_t length);
 void debug_msg_bin(uint8_t *msg_bin);
 #endif
