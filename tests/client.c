@@ -50,6 +50,7 @@ typedef struct accept_req_params{
 void *accept_req_work(void *mparms){
     accept_req_params *parms = (accept_req_params *)mparms;
     accept_connect(parms->m,parms->id,parms->msg_listener_list);
+    
 }
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
@@ -57,31 +58,25 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
     uint8_t *str = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_CLIENT_ID_SIZE*2));
     hex_bin_to_string(public_key,TOX_CLIENT_ID_SIZE,str);
     // start a new thread to init new connection
-    
-    pthread_t *accept_req_thread;
-    accept_req_thread = (pthread_t *)malloc(sizeof(pthread_t));
+    pthread_t accept_req_thread;
     accept_req_params *req_parms = (accept_req_params *)malloc(sizeof(accept_req_params));
     req_parms->m = my_tox;
     req_parms->id = str;
     req_parms->msg_listener_list = msg_listener_list;
     
-    int iret1 = pthread_create( accept_req_thread, NULL,accept_req_work,req_parms);
+    // DATA CAN NOT BE RELEASED
     
-    // release data
-    free(str);
-    free(req_parms);
-    // to be tested
-    //free(accept_req_thread);
+    int iret1 = pthread_create( &accept_req_thread, NULL,accept_req_work,req_parms);
     
     if(iret1){
         exit(EXIT_FAILURE);
     }else{
-        printf("TOXCORE:RECEIVED NEW REQ");
+        printf("TOXCORE:RECEIVED NEW REQ\n");
     }
 }
 
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t length, void *userdata) {
-    
+    printf("MESSAGE RECEIVED\n");
     // get remote id
     uint8_t client_id_bin[TOX_CLIENT_ID_SIZE];
     uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
