@@ -217,6 +217,78 @@ void intHandler(int dummy) {
 }
 
 
+#ifdef _WIN32
+uint32_t init_local_sock_serv(uint32_t local_port){
+    uint32_t iServerSock;
+    struct sockaddr_in ServerAddr;
+    WSADATA WSAData;
+    
+    if(WSAStartup(MAKEWORD(1, 1), &WSAData)){
+        printf("initializationing error!\n");
+        WSACleanup();
+        exit(0);
+    }
+
+    if((iServerSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
+        printf("create socket failed\n");
+        WSACleanup();
+        exit(0);
+    }
+
+    ServerAddr.sin_family = AF_INET;
+    ServerAddr.sin_port = htons(local_port);//监视的端口号
+    ServerAddr.sin_addr.s_addr = INADDR_ANY;//本地IP
+    memset(& (ServerAddr.sin_zero), 0, sizeof(ServerAddr.sin_zero));
+    
+    if(bind(iServerSock, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1){
+        printf("bind failed!\n");
+        WSACleanup();
+        exit(0);
+    }
+
+    if(listen(iServerSock, 5) == -1){
+        printf("listen failed!\n");
+        WSACleanup();
+        exit(0);
+    }
+    return iServerSock;
+}
+
+int init_local_sock(int local_port){
+    
+    int iClientSock;
+    struct sockaddr_in ServerAddr;
+    
+    WSADATA WSAData;
+
+
+    if(WSAStartup(MAKEWORD(1, 1), &WSAData)){
+        printf("initializationing error!\n");
+        WSACleanup();
+        exit(0);
+    }
+
+    if((iClientSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
+        printf("create socket failed!\n");
+        WSACleanup();
+        exit(0);
+    }
+
+    ServerAddr.sin_family = AF_INET;
+    ServerAddr.sin_port = htons(local_port);
+    ServerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    memset(&(ServerAddr.sin_zero), 0, sizeof(ServerAddr.sin_zero));
+
+    if(connect(iClientSock, (struct sockaddr *) & ServerAddr, sizeof(struct sockaddr)) == -1){
+        printf("connect failed");
+        WSACleanup();
+        exit(0);
+    }
+    
+    return iClientSock;
+}
+
+#else
 
 uint32_t init_local_sock(uint32_t local_port){
     struct sockaddr_in serv_addr;
@@ -243,12 +315,10 @@ uint32_t init_local_sock(uint32_t local_port){
 
 uint32_t init_local_sock_serv(uint32_t local_port){
     int sockfd;
-    socklen_t clilen;
-    char buffer[256];
     struct sockaddr_in serv_addr;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) 
-    error("ERROR opening socket");
+        error("ERROR opening socket");
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -260,6 +330,33 @@ uint32_t init_local_sock_serv(uint32_t local_port){
     return sockfd;
 }
 
+#endif
+
+
+int32_t readCSock(uint32_t sockfd,uint8_t *buf,uint32_t length){
+#ifdef _WIN32
+    return recv(sockfd, buf, length, 0);
+#else
+    return read(sockfd, buf, length);
+#endif
+}
+
+int32_t writeCSock(uint32_t sockfd, uint8_t *buf, uint32_t length){
+#ifdef _WIN32
+    send(sockfd, buf, length, 0);
+#else
+    write(sockfd,buf,length);
+#endif
+}
+
+int32_t closeCSock(uint32_t sockfd){
+#ifdef _WIN32
+    closesocket(sockfd);
+    WSACleanup();
+#else
+    shutdown(sockfd,2);
+#endif
+}
 
 /**
  * add data to local message queue
