@@ -116,8 +116,9 @@
  /usr/local/include/sodium/runtime.h /usr/local/include/sodium/utils.h \
  /usr/local/include/sodium/version.h ../toxcore/ping_array.h \
  ../toxcore/TCP_client.h ../toxcore/TCP_server.h ../toxcore/onion.h \
- ../toxcore/list.h /usr/include/pthread.h /usr/include/sched.h \
- /usr/include/x86_64-linux-gnu/bits/sched.h \
+ ../toxcore/list.h /usr/include/x86_64-linux-gnu/sys/epoll.h \
+ /usr/include/x86_64-linux-gnu/bits/epoll.h /usr/include/pthread.h \
+ /usr/include/sched.h /usr/include/x86_64-linux-gnu/bits/sched.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h ../toxcore/util.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/stdbool.h /usr/include/math.h \
  /usr/include/x86_64-linux-gnu/bits/huge_val.h \
@@ -424,6 +425,10 @@
 ../toxcore/onion.h:
 
 ../toxcore/list.h:
+
+/usr/include/x86_64-linux-gnu/sys/epoll.h:
+
+/usr/include/x86_64-linux-gnu/bits/epoll.h:
 
 /usr/include/pthread.h:
 

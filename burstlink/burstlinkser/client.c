@@ -105,11 +105,13 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
         uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
         uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
         unpack_msg_bin(bin, uuid, cmd, data, length);
-        
+        printf("UUID:%s\n",uuid);
+        printf("LENGTH:%d\n",*length);
         if(strcmp(cmd,"UNKNOWN_CMD") == 0){
             
         }else if(strcmp(cmd,"RAW_DATA") == 0){
             on_remote_data_received(uuid, data, *length, client_id_bin);
+            printf("OK1\n");
         }else{
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
@@ -139,6 +141,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
         free(cmd);
         free(data);
         free(length);
+        printf("OK2\n");
     }
     
     // 请求者模式
@@ -157,7 +160,6 @@ void file_request_accept(Tox *messenger, int friendnumber, uint8_t filenumber, u
 }
 
 void on_connectionchange(Tox *m, int32_t friendnumber, uint8_t status, void *userdata){
-    
 }
 
 /**
@@ -537,34 +539,36 @@ void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_
 }
 
 void *on_local_sock_connect(void *msockfd){
-	uint32_t sockfd = *((uint32_t *)msockfd);
-	uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-	hex_string_to_bin(target_addr_bin, target_id);
-	add_local_socks(msocks_list, sockfd, target_addr_bin, target_ip, target_port);
-	printf("CONNECTED\n");
-	// create remote socket
-	const uint8_t *uuid = get_local_socks_uuid(msocks_list, sockfd);
-	create_remote_socket(uuid, target_addr_bin, target_ip, target_port);
-	uint8_t buf[SOCK_BUF_SIZE];
-	int length = 1;
-	while (length > 0){
-		memset(buf, 0, SOCK_BUF_SIZE);
-		length = readCSock(sockfd, buf, SOCK_BUF_SIZE - 1);
-
-		if (length > 0){
-			on_local_data_received(buf, length, sockfd);
-		}
-
-	}
-	// read data error
-	// close remote and local sock
-	closeCSock(sockfd);
-	close_remote_socket(uuid, target_addr_bin);
-	close_local_socks(msocks_list, sockfd);
-	free(target_addr_bin);
-	return NULL;
+    uint32_t sockfd = *((uint32_t *)msockfd);
+    printf("CONNECTED\n");
+    const uint8_t *target_addr_bin_temp = get_local_socks_addr_bin(msocks_list,sockfd);
+    uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    if(target_addr_bin_temp == NULL){
+        printf("ERROR**********************\n");
+        print_local_socks_list(msocks_list);
+    }
+        
+    uint8_t test[TOX_FRIEND_ADDRESS_SIZE*2+1];
+    hex_bin_to_string(target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE,test);
+    bufcopy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
+    const uint8_t *uuid_temp = get_local_socks_uuid(msocks_list,sockfd);
+    uint8_t uuid[36];
+    strcpy(uuid,uuid_temp);
+    uint8_t buf[SOCK_BUF_SIZE];
+    int length = 1;
+    while(length > 0){
+        bzero(buf,SOCK_BUF_SIZE);
+        length = read(sockfd,buf,SOCK_BUF_SIZE-1);
+        //printf("LENGTH:%d\n",length);
+        if(length > 0)
+            on_local_data_received(buf,length,sockfd);
+    }
+    // read data error
+    // close remote and local sock
+    close_remote_socket(uuid,target_addr_bin);
+    close_local_socks(msocks_list,sockfd);
+    free(msockfd);
 }
-
 
 int main(int argc, char *argv[])
 {

@@ -11,12 +11,9 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
         return 401;
     }
 	
-	uint8_t *client_id_str = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_CLIENT_ID_SIZE * 2 + 1));
-	memset(client_id_str, 0, TOX_CLIENT_ID_SIZE * 2 + 1);
+	uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
     address_str_to_client_str(address_str,client_id_str);
-
-	uint8_t *client_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_FRIEND_ADDRESS_SIZE));
-	memset(client_addr_bin, 0, TOX_FRIEND_ADDRESS_SIZE);
+    uint8_t client_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
     hex_string_to_bin(client_addr_bin, address_str);
 
     // add friend
@@ -25,8 +22,6 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
     if(tox_get_friend_number(m,client_addr_bin) == -1){
         friendnum = tox_add_friend(m,client_addr_bin,"HANDSHAKE",strlen("HANDSHAKE"));
         if(friendnum < 0){
-			free(client_id_str);
-			free(client_addr_bin);
             printf("%d\n",110+friendnum);
             return 110+friendnum;
         };
@@ -46,11 +41,10 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
     
     
     if(tox_get_friend_connection_status(m,friendnum)){
+        printf("online\n");
         // add listener
         uint32_t res = tox_send_message(m,friendnum,"HANDSHAKE",strlen("HANDSHAKE"));
         if(res < 0){
-			free(client_id_str);
-			free(client_addr_bin);
             printf("%d\n",210 + res);
             return 210 +res;
         }
@@ -68,20 +62,14 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
 		
         if(is_message_received(msg_listener_list,"HANDSHAKE",client_id_str)){
             // handShake received
-			free(client_id_str);
-			free(client_addr_bin);
             printf("402\n");
             return 402;
         }
         // handShake failed
-		free(client_id_str);
-		free(client_addr_bin);
         printf("401\n");
         return 401;
     }
     // target offline
-	free(client_id_str);
-	free(client_addr_bin);
     printf("401\n");
     return 401;
 }

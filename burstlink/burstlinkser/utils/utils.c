@@ -13,10 +13,11 @@ char *hex_string_to_bin(uint8_t *bin, const char *hex_string)
 		int num;
 #ifdef _WIN32
 		sscanf_s(hex_string, "%2hhx", &num);
+        bin[i] = (uint8_t)num;
 #else
-		sscanf(hex_string, "%2hhx", &num);
+		sscanf(hex_string, "%2hhx", &bin[i]);
 #endif
-		bin[i] = (uint8_t)num;
+		
 	}
     return bin;
 }
@@ -26,7 +27,11 @@ void fraddr_to_str(uint8_t *id_bin, char *id_str)
     uint32_t i, delta = 0, pos_extra, sum_extra = 0;
 
     for (i = 0; i < TOX_FRIEND_ADDRESS_SIZE; i++) {
+#ifdef _WIN32
 		sprintf_s(&id_str[2 * i + delta],TOX_FRIEND_ADDRESS_SIZE*2, "%02hhX", id_bin[i]);
+#else
+        sprintf(&id_str[2 * i + delta], "%02hhX", id_bin[i]);
+#endif
         if ((i + 1) == TOX_CLIENT_ID_SIZE)
             pos_extra = 2 * (i + 1) + delta;
 

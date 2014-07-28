@@ -115,7 +115,9 @@
  /usr/local/include/sodium/runtime.h /usr/local/include/sodium/utils.h \
  /usr/local/include/sodium/version.h ../toxcore/TCP_server.h \
  ../toxcore/onion.h ../toxcore/DHT.h ../toxcore/ping_array.h \
- ../toxcore/list.h /usr/include/x86_64-linux-gnu/sys/ioctl.h \
+ ../toxcore/list.h /usr/include/x86_64-linux-gnu/sys/epoll.h \
+ /usr/include/x86_64-linux-gnu/bits/epoll.h \
+ /usr/include/x86_64-linux-gnu/sys/ioctl.h \
  /usr/include/x86_64-linux-gnu/bits/ioctls.h \
  /usr/include/x86_64-linux-gnu/asm/ioctls.h \
  /usr/include/asm-generic/ioctls.h /usr/include/linux/ioctl.h \
@@ -418,6 +420,10 @@
 ../toxcore/ping_array.h:
 
 ../toxcore/list.h:
+
+/usr/include/x86_64-linux-gnu/sys/epoll.h:
+
+/usr/include/x86_64-linux-gnu/bits/epoll.h:
 
 /usr/include/x86_64-linux-gnu/sys/ioctl.h:
 
