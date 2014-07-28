@@ -57,7 +57,7 @@ typedef struct accept_req_params{
 void *accept_req_work(void *mparms){
     accept_req_params *parms = (accept_req_params *)mparms;
     accept_connect(parms->m,parms->id,parms->msg_listener_list);
-    
+	return NULL;
 }
 
 void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
@@ -83,10 +83,9 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
 }
 
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t length, void *userdata) {
-    printf("MESSAGE RECEIVED\n");
     // get remote id
-    uint8_t client_id_bin[TOX_CLIENT_ID_SIZE];
-    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
+    uint8_t client_id_bin[TOX_CLIENT_ID_SIZE+1];
+    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
     tox_get_client_id(m,friendnumber,client_id_bin);
     hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
@@ -105,13 +104,10 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
         uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
         uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
         unpack_msg_bin(bin, uuid, cmd, data, length);
-        printf("UUID:%s\n",uuid);
-        printf("LENGTH:%d\n",*length);
         if(strcmp(cmd,"UNKNOWN_CMD") == 0){
             
         }else if(strcmp(cmd,"RAW_DATA") == 0){
             on_remote_data_received(uuid, data, *length, client_id_bin);
-            printf("OK1\n");
         }else{
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
@@ -141,7 +137,6 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
         free(cmd);
         free(data);
         free(length);
-        printf("OK2\n");
     }
     
     // 请求者模式
@@ -170,7 +165,7 @@ void on_hand_shake_reveived(const uint8_t *target_addr_bin){
     printf("HANDSHAKE RECEIVED\n");
     int32_t friend_num = tox_get_friend_number(my_tox,target_addr_bin);
     printf("FRIENDNUM:%d\n",friend_num);
-	uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE * 2] = {0};
+	uint8_t addr_str[TOX_FRIEND_ADDRESS_SIZE * 2];
 	hex_bin_to_string(target_addr_bin, TOX_CLIENT_ID_SIZE, addr_str);
 	printf("ID:%s\n", addr_str);
     //return HANDSHAKE
@@ -204,6 +199,7 @@ int init_tox_connection(Tox *m)
     if (!res) {
         exit(1);
     }
+	return 0;
 }
 
 
@@ -285,7 +281,6 @@ uint32_t init_local_sock_serv(uint32_t local_port){
 }
 
 int init_local_sock(const uint8_t *ip, int local_port){
-
 	int iClientSock;
 	struct sockaddr_in ServerAddr;
 
@@ -543,22 +538,26 @@ void *on_local_sock_connect(void *msockfd){
     printf("CONNECTED\n");
     const uint8_t *target_addr_bin_temp = get_local_socks_addr_bin(msocks_list,sockfd);
     uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
-    if(target_addr_bin_temp == NULL){
+    /*if(target_addr_bin_temp == NULL){
         printf("ERROR**********************\n");
         print_local_socks_list(msocks_list);
-    }
+    }*/
         
     uint8_t test[TOX_FRIEND_ADDRESS_SIZE*2+1];
     hex_bin_to_string(target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE,test);
     bufcopy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
     const uint8_t *uuid_temp = get_local_socks_uuid(msocks_list,sockfd);
-    uint8_t uuid[36];
-    strcpy(uuid,uuid_temp);
+    uint8_t uuid[UUID_LENGTH+1];
+#ifdef _WIN32
+	bufcopy(uuid, uuid_temp, UUID_LENGTH);
+#else
+	strcpy(uuid, uuid_temp);
+#endif
     uint8_t buf[SOCK_BUF_SIZE];
     int length = 1;
     while(length > 0){
-        bzero(buf,SOCK_BUF_SIZE);
-        length = read(sockfd,buf,SOCK_BUF_SIZE-1);
+        memset(buf,0,SOCK_BUF_SIZE);
+        length = readCSock(sockfd,buf,SOCK_BUF_SIZE-1);
         //printf("LENGTH:%d\n",length);
         if(length > 0)
             on_local_data_received(buf,length,sockfd);
@@ -568,6 +567,7 @@ void *on_local_sock_connect(void *msockfd){
     close_remote_socket(uuid,target_addr_bin);
     close_local_socks(msocks_list,sockfd);
     free(msockfd);
+	return 0;
 }
 
 int main(int argc, char *argv[])

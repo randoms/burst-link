@@ -97,13 +97,13 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     uuid_t muuid;
 #ifdef _WIN32
 	UuidCreate(&muuid);
-	UuidToStringA(&muuid, (RPC_CSTR *)uuid_str);
+	UuidToStringA(&muuid, (RPC_CSTR *)&uuid_str);
 #else
 	uuid_generate(muuid);
 	uuid_unparse(muuid, uuid_str);
 #endif
     
-    
+	printf("UUID:%s\n", uuid_str);
     mlocal_socks->uuid = uuid_str;
     mlocal_socks->sock = sockfd;
     mlocal_socks->ready_flag = 0;

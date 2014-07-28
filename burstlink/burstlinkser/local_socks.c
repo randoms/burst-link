@@ -97,13 +97,11 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     uuid_t muuid;
 #ifdef _WIN32
 	UuidCreate(&muuid);
-	UuidToStringA(&muuid, (RPC_CSTR *)uuid_str);
+	UuidToStringA(&muuid, (RPC_CSTR *)&uuid_str);
 #else
 	uuid_generate(muuid);
 	uuid_unparse(muuid, uuid_str);
 #endif
-    
-    
     mlocal_socks->uuid = uuid_str;
     mlocal_socks->sock = sockfd;
     mlocal_socks->ready_flag = 0;
@@ -186,14 +184,15 @@ uint8_t *get_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd){
 uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const uint8_t *uuid){
     if(mlist == NULL)return 0;
     if(mlist->size == 0)return 0;
-    if(strlen(uuid) != 36)return 0; // uuid format error
+    if(strlen(uuid) != UUID_LENGTH)return 0; // uuid format error
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
+		
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
 #ifdef _WIN32
-            strcpy_s(temp_sock->uuid,UUID_LENGTH,uuid);
+			bufcopy(temp_sock->uuid,uuid,UUID_LENGTH);
 #else
 			strcpy(temp_sock->uuid, uuid);
 #endif
@@ -205,7 +204,7 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
 #ifdef _WIN32
-		strcpy_s(temp_sock->uuid,UUID_LENGTH, uuid);
+		bufcopy(temp_sock->uuid, uuid, UUID_LENGTH);
 #else
 		strcpy(temp_sock->uuid, uuid);
 #endif

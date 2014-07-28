@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <rpc.h>
+
+#pragma comment(lib,"rpcrt4.lib")
 
 void hex_bin_to_string(const uint8_t *hex_bin, const uint32_t bin_length, uint8_t *str){
 
@@ -41,18 +44,10 @@ void hex_bin_to_string(const uint8_t *hex_bin, const uint32_t bin_length, uint8_
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	uint8_t a[] = "AAAAAAAA";
-	uint8_t *bin = (uint8_t *)malloc(sizeof(uint8_t)*10);
-	memset(bin, 5, 1);
-	uint8_t str[3] = {0};
-	hex_bin_to_string(bin, 1, str);
-	//sprintf_s(str, 10, "0%X", bin[0]);
-	printf("%s\n", str);
-	int i = 0;
-	for (i = 0; i < 7; i++){
-		printf("%d\n", bin[i]);
-	}
-	free(bin);
-	return 0;
+	uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*40);
+	uuid_t muuid;
+	UuidCreate(&muuid);
+	UuidToStringA(&muuid, (RPC_CSTR *)&uuid_str);
+	printf("UUID:%s\n", uuid_str);
 }
 
