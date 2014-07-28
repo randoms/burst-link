@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "burstlink", "burstlink\burstlink.vcxproj", "{AE0866A6-0B92-4EB0-862D-AE8B21613F2A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testArray", "testArray\testArray.vcxproj", "{8F886B1A-8F68-4FE6-96C9-C0DFCC02813A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "burstlinkser", "burstlinkser\burstlinkser.vcxproj", "{759397C1-D0D1-4350-89B5-EFEF426EC6AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE0866A6-0B92-4EB0-862D-AE8B21613F2A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AE0866A6-0B92-4EB0-862D-AE8B21613F2A}.Debug|Win32.Build.0 = Debug|Win32
+		{AE0866A6-0B92-4EB0-862D-AE8B21613F2A}.Release|Win32.ActiveCfg = Release|Win32
+		{AE0866A6-0B92-4EB0-862D-AE8B21613F2A}.Release|Win32.Build.0 = Release|Win32
+		{8F886B1A-8F68-4FE6-96C9-C0DFCC02813A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8F886B1A-8F68-4FE6-96C9-C0DFCC02813A}.Debug|Win32.Build.0 = Debug|Win32
+		{8F886B1A-8F68-4FE6-96C9-C0DFCC02813A}.Release|Win32.ActiveCfg = Release|Win32
+		{8F886B1A-8F68-4FE6-96C9-C0DFCC02813A}.Release|Win32.Build.0 = Release|Win32
+		{759397C1-D0D1-4350-89B5-EFEF426EC6AB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{759397C1-D0D1-4350-89B5-EFEF426EC6AB}.Debug|Win32.Build.0 = Debug|Win32
+		{759397C1-D0D1-4350-89B5-EFEF426EC6AB}.Release|Win32.ActiveCfg = Release|Win32
+		{759397C1-D0D1-4350-89B5-EFEF426EC6AB}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
