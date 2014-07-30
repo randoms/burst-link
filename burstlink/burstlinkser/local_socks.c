@@ -105,16 +105,18 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     mlocal_socks->uuid = uuid_str;
     mlocal_socks->sock = sockfd;
     mlocal_socks->ready_flag = 0;
-    uint8_t mtarget_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
+    uint8_t mtarget_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
     bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     mlocal_socks->target_addr_bin = mtarget_addr_bin;
-    uint8_t mip[4];
+    uint8_t mip[4+1];
     bufcopy(mip,target_ip,4);
     mlocal_socks->target_ip = mip;
     mlocal_socks->target_port = target_port;
     add_local_socks_list(mlist,mlocal_socks);
     free(uuid_str);
     free(mlocal_socks);
+    printf("add_local_socks\n");
+    debug_local_socket(mlist);
 }
 
 void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
@@ -126,6 +128,8 @@ void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
             remove_local_socks_list(mlist, temp);
+            printf("close_local_socks\n");
+            debug_local_socket(mlist);
             return;
         }
         temp = temp->after;
@@ -134,8 +138,11 @@ void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
         remove_local_socks_list(mlist, temp);
+        printf("close_local_socks\n");
+        debug_local_socket(mlist);
         return;
     }
+    printf("close not found\n");
 }
 
 uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
@@ -196,6 +203,8 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
 #else
 			strcpy(temp_sock->uuid, uuid);
 #endif
+            printf("set uuid\n");
+            debug_local_socket(mlist);
             return 1;
         }
         temp = temp->after;
@@ -208,10 +217,13 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
 #else
 		strcpy(temp_sock->uuid, uuid);
 #endif
-        
+        printf("set uuid\n");
+        debug_local_socket(mlist);
         return 1;
     }
     // not found set to null
+    printf("set uuid\n");
+    debug_local_socket(mlist);
     return 0;
 }
 
@@ -278,6 +290,26 @@ int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
     if((temp_sock->sock) == sockfd){
         return temp_sock->ready_flag;
     }
+    // not found set to null
+    return 0;
+}
+
+
+int debug_local_socket(local_socks_list *mlist){
+    if(mlist == NULL)return 0;
+    if(mlist->size == 0)return 0;
+    local_socks_node *temp = mlist->head;
+    local_socks *temp_sock;
+    while(temp->after != NULL){
+        temp_sock = temp->me;
+        // check data vaildation
+        debugTargetBin(temp_sock->target_addr_bin);
+        temp = temp->after;
+    }
+    // check the last one
+    temp_sock = temp->me;
+    // check data vaild
+    debugTargetBin(temp_sock->target_addr_bin);
     // not found set to null
     return 0;
 }

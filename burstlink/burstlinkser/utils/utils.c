@@ -22,53 +22,13 @@ char *hex_string_to_bin(uint8_t *bin, const char *hex_string)
     return bin;
 }
 
-void fraddr_to_str(uint8_t *id_bin, char *id_str)
-{
-    uint32_t i, delta = 0, pos_extra, sum_extra = 0;
-
-    for (i = 0; i < TOX_FRIEND_ADDRESS_SIZE; i++) {
-#ifdef _WIN32
-		sprintf_s(&id_str[2 * i + delta],TOX_FRIEND_ADDRESS_SIZE*2, "%02hhX", id_bin[i]);
-#else
-        sprintf(&id_str[2 * i + delta], "%02hhX", id_bin[i]);
-#endif
-        if ((i + 1) == TOX_CLIENT_ID_SIZE)
-            pos_extra = 2 * (i + 1) + delta;
-
-        if (i >= TOX_CLIENT_ID_SIZE)
-            sum_extra |= id_bin[i];
-
-        if (!((i + 1) % FRADDR_TOSTR_CHUNK_LEN)) {
-            id_str[2 * (i + 1) + delta] = ' ';
-            delta++;
-        }
-    }
-
-    id_str[2 * i + delta] = 0;
-
-    if (!sum_extra)
-        id_str[pos_extra] = 0;
-}
-
 void address_bin_to_client_id_bin(const uint8_t *address_bin, uint8_t *client_id_bin){
     uint32_t i;
     for(i=0;i<TOX_CLIENT_ID_SIZE;i++){
         client_id_bin[i] = address_bin[i];
     }
-    client_id_bin[TOX_CLIENT_ID_SIZE] = '\0';
 }
 
-void hexid_to_str(uint8_t *id_bin, uint8_t *id_str){
-    uint8_t length = TOX_FRIEND_ADDRESS_SIZE;
-    uint8_t i = 0;
-    //uint8_t *temp_str;
-    for(i = 0; i<length;i++){
-//         printf(temp_str,"%X",id_bin[i]);
-        //sprintf(temp_str,"%X",id_bin[i]);
-        //id_str[i] = temp_str[0];
-        //id_str[i+1] = temp_str[1];
-    }
-}
 
 static uint64_t current_unix_time;
 
@@ -238,8 +198,8 @@ void hex_bin_to_string(const uint8_t *hex_bin, const uint32_t bin_length, uint8_
 }
 
 void get_my_client_id_str(Tox *m, uint8_t *my_id_str){
-    uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE];
-    uint8_t my_addr_str[TOX_FRIEND_ADDRESS_SIZE*2];
+    uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
+    uint8_t my_addr_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
     
     tox_get_address(m,addr_bin);
     hex_bin_to_string(addr_bin,TOX_FRIEND_ADDRESS_SIZE,my_addr_str);
@@ -388,7 +348,7 @@ void bufcopy(uint8_t *target, const uint8_t *origin,uint32_t length){
 
 void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, const uint8_t *data, const uint32_t length){
     uint32_t i=0;
-    
+    memset(msg_bin,0,MY_MESSAGE_LENGTH);
     // set uuid bytes
     for(i=0;i<UUID_LENGTH;i++){
         msg_bin[i] = uuid[i];
@@ -423,6 +383,9 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
     uint32_t i=0;
     
     // get uuid bytes
+    memset(uuid,0,UUID_LENGTH);
+    memset(cmd,0,32);
+    memset(data,0,SOCK_BUF_SIZE);
     for(i=0;i<UUID_LENGTH;i++){
         uuid[i] = msg_bin[i];
     }
@@ -474,5 +437,19 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
             data[i] = msg_bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i];
         }
         data[*length] = '\0';
+    }
+}
+
+
+void debugTargetBin(const uint8_t *bin){
+    uint8_t i = 0;
+    uint8_t addr_str[] = "6CE307E29A0D7F869777F175525BF91AFF638A64F629258EE6747F9D927F3263B95FCCD8FABA";
+    uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
+    hex_string_to_bin(addr_bin,addr_str);
+    for(i=0;i<TOX_CLIENT_ID_SIZE;i++){
+        if(bin[i] != addr_bin[i]){
+            printf("addr ERROR\n");
+            exit(0);
+        }
     }
 }
