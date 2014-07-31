@@ -443,7 +443,7 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
 
 void debugTargetBin(const uint8_t *bin){
     uint8_t i = 0;
-    uint8_t addr_str[] = "6CE307E29A0D7F869777F175525BF91AFF638A64F629258EE6747F9D927F3263B95FCCD8FABA";
+    uint8_t addr_str[] = "13A14BE0DF6C235354B87E39DF11A8697FF1C80E40CE780D57001F81C46A7B21057DDEBF5AB3";
     uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
     hex_string_to_bin(addr_bin,addr_str);
     for(i=0;i<TOX_CLIENT_ID_SIZE;i++){

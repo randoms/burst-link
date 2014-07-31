@@ -1,4 +1,4 @@
-﻿Build started 2014/7/28 16:46:35.
+﻿Build started 2014/7/31 11:51:03.
 Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\burstlinkser\burstlinkser.vcxproj" on node 2 (Rebuild target(s)).
 C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(388,5): warning MSB8028: The intermediate directory (Release\) contains files shared from another project (burstlink.vcxproj).  This can lead to incorrect clean and rebuild behavior.
 ClCompile:
@@ -23,4 +23,4 @@ Done Building Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\bu
 
 Build succeeded.
 
-Time Elapsed 00:00:03.52
+Time Elapsed 00:00:02.68

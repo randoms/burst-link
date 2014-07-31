@@ -46,4 +46,5 @@ void bufcopy(uint8_t *target,const uint8_t *origin,uint32_t length);
 // void bin_to_msg(uint8_t *msg, const uint8_t *bin);
 void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, const uint8_t *data, const uint32_t length);
 void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t *data, uint32_t *length);
+void debugTargetBin(const uint8_t *bin);
 #endif

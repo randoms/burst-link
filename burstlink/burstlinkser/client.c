@@ -242,6 +242,7 @@ void *tox_works(void *a){
 
 void intHandler(int dummy) {
     store_data(my_tox);
+	WSACleanup();
     printf("EXITING...\n");
     exit(EXIT_SUCCESS);
 }
@@ -254,14 +255,12 @@ uint32_t init_local_sock_serv(uint32_t local_port){
 
 	if (WSAStartup(MAKEWORD(1, 1), &WSAData)){
 		printf("initializationing error!\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 
 	if ((iServerSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
 		printf("create socket failed\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 
 	ServerAddr.sin_family = AF_INET;
@@ -271,14 +270,12 @@ uint32_t init_local_sock_serv(uint32_t local_port){
 
 	if (bind(iServerSock, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1){
 		printf("bind failed!\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 
 	if (listen(iServerSock, 5) == -1){
 		printf("listen failed!\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 	return iServerSock;
 }
@@ -292,14 +289,12 @@ int init_local_sock(const uint8_t *ip, int local_port){
 
 	if (WSAStartup(MAKEWORD(1, 1), &WSAData)){
 		printf("initializationing error!\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 
 	if ((iClientSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
 		printf("create socket failed!\n");
-		WSACleanup();
-		exit(0);
+		return 0;
 	}
 
 	ServerAddr.sin_family = AF_INET;
@@ -308,9 +303,8 @@ int init_local_sock(const uint8_t *ip, int local_port){
 	memset(&(ServerAddr.sin_zero), 0, sizeof(ServerAddr.sin_zero));
 
 	if (connect(iClientSock, (struct sockaddr *) & ServerAddr, sizeof(struct sockaddr)) == -1){
-		printf("connect failed");
-		WSACleanup();
-		exit(0);
+		printf("connect failed\n");
+		return 0;
 	}
 
 	return iClientSock;
@@ -379,7 +373,6 @@ int32_t writeCSock(uint32_t sockfd, const uint8_t *buf, uint32_t length){
 int32_t closeCSock(uint32_t sockfd){
 #ifdef _WIN32
 	int res = closesocket(sockfd);
-	WSACleanup();
 	return res;
 #else
 	return shutdown(sockfd, 2);
@@ -546,6 +539,8 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
     }else{
         // socket might be closed 
         printf("INVALID SOCKET, CLOSE IT\n");
+		printf("uuid:%s\n", uuid);
+		print_local_socks_list(msocks_list);
         close_remote_socket(uuid,client_id_bin);
     }
 }
@@ -580,6 +575,7 @@ void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_
     // create local sock
     add_local_socks(msocks_list,sockfd,target_addr_bin,target_ip,target_port);
     if(set_local_socks_uuid(msocks_list,sockfd,uuid) == 1){
+		printf("uuid:%s\n", uuid);
         printf("SOCKET CREATED\n");
         // start a new thread read sock
         pthread_t new_sock_thread;
@@ -596,7 +592,6 @@ void *on_local_sock_connect(void *msockfd){
     uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
     if(target_addr_bin_temp == NULL){
         printf("ERROR**********************\n");
-        print_local_socks_list(msocks_list);
     }
         
     uint8_t test[TOX_FRIEND_ADDRESS_SIZE*2+1];

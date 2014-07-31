@@ -2,207 +2,168 @@
 
 char *hex_string_to_bin(uint8_t *bin, const char *hex_string)
 {
-    size_t len = strlen(hex_string)/2;
+	size_t len = strlen(hex_string) / 2;
 
-    if (bin == NULL){
-//         printf("transform failed");
-    }
+	if (bin == NULL){
+		//         printf("transform failed");
+	}
 
-    size_t i;
+	size_t i;
 	for (i = 0; i < len; i++, hex_string += 2){
 		int num;
 #ifdef _WIN32
 		sscanf_s(hex_string, "%2hhx", &num);
-        bin[i] = (uint8_t)num;
+		bin[i] = (uint8_t)num;
 #else
 		sscanf(hex_string, "%2hhx", &bin[i]);
 #endif
-		
+
 	}
-    return bin;
-}
-
-void fraddr_to_str(uint8_t *id_bin, char *id_str)
-{
-    uint32_t i, delta = 0, pos_extra, sum_extra = 0;
-
-    for (i = 0; i < TOX_FRIEND_ADDRESS_SIZE; i++) {
-#ifdef _WIN32
-		sprintf_s(&id_str[2 * i + delta],TOX_FRIEND_ADDRESS_SIZE*2, "%02hhX", id_bin[i]);
-#else
-        sprintf(&id_str[2 * i + delta], "%02hhX", id_bin[i]);
-#endif
-        if ((i + 1) == TOX_CLIENT_ID_SIZE)
-            pos_extra = 2 * (i + 1) + delta;
-
-        if (i >= TOX_CLIENT_ID_SIZE)
-            sum_extra |= id_bin[i];
-
-        if (!((i + 1) % FRADDR_TOSTR_CHUNK_LEN)) {
-            id_str[2 * (i + 1) + delta] = ' ';
-            delta++;
-        }
-    }
-
-    id_str[2 * i + delta] = 0;
-
-    if (!sum_extra)
-        id_str[pos_extra] = 0;
+	return bin;
 }
 
 void address_bin_to_client_id_bin(const uint8_t *address_bin, uint8_t *client_id_bin){
-    uint32_t i;
-    for(i=0;i<TOX_CLIENT_ID_SIZE;i++){
-        client_id_bin[i] = address_bin[i];
-    }
-    client_id_bin[TOX_CLIENT_ID_SIZE] = '\0';
+	uint32_t i;
+	for (i = 0; i<TOX_CLIENT_ID_SIZE; i++){
+		client_id_bin[i] = address_bin[i];
+	}
 }
 
-void hexid_to_str(uint8_t *id_bin, uint8_t *id_str){
-    uint8_t length = TOX_FRIEND_ADDRESS_SIZE;
-    uint8_t i = 0;
-    //uint8_t *temp_str;
-    for(i = 0; i<length;i++){
-//         printf(temp_str,"%X",id_bin[i]);
-        //sprintf(temp_str,"%X",id_bin[i]);
-        //id_str[i] = temp_str[0];
-        //id_str[i+1] = temp_str[1];
-    }
-}
 
 static uint64_t current_unix_time;
 
 void update_unix_time(void)
 {
-    current_unix_time = (uint64_t) time(NULL);
+	current_unix_time = (uint64_t)time(NULL);
 }
 
 uint64_t get_unix_time(void)
 {
-    return current_unix_time;
+	return current_unix_time;
 }
 
 int timed_out(uint64_t timestamp, uint64_t curtime, uint64_t timeout)
 {
-    return timestamp + timeout <= curtime;
+	return timestamp + timeout <= curtime;
 }
 
 
 /*
- * Store Messenger to given location
- * Return 0 stored successfully
- * Return 1 file path is NULL
- * Return 2 malloc failed
- * Return 3 opening path failed
- * Return 4 fwrite failed
- */
+* Store Messenger to given location
+* Return 0 stored successfully
+* Return 1 file path is NULL
+* Return 2 malloc failed
+* Return 3 opening path failed
+* Return 4 fwrite failed
+*/
 int store_data(Tox *m)
 {
-    char cwd[1024];
+	char cwd[1024];
 #ifdef _WIN32
 	char *path = _getcwd(cwd, sizeof(cwd));
-	strcat_s(path,1024,"/data.tox");
+	strcat_s(path, 1024, "/data.tox");
 #else
 	char *path = getcwd(cwd, sizeof(cwd));
 	strcat(path, "/data.tox");
 #endif
-    if (path == NULL)
-        return 1;
+	if (path == NULL)
+		return 1;
 
-    FILE *fd;
-    int len;
-    char *buf;
+	FILE *fd;
+	int len;
+	char *buf;
 
-    len = tox_size(m);
-    buf = malloc(len);
+	len = tox_size(m);
+	buf = malloc(len);
 
-    if (buf == NULL)
-        return 2;
+	if (buf == NULL)
+		return 2;
 
-    tox_save(m, (uint8_t *) buf);
+	tox_save(m, (uint8_t *)buf);
 #ifdef _WIN32
 	fopen_s(&fd, path, "wb");
 #else
 	fd = fopen(path, "wb");
 #endif
-    
 
-    if (fd == NULL) {
-        free(buf);
-        return 3;
-    }
 
-    if (fwrite(buf, len, 1, fd) != 1) {
-        free(buf);
-        fclose(fd);
-        return 4;
-    }
+	if (fd == NULL) {
+		free(buf);
+		return 3;
+	}
 
-    free(buf);
-    fclose(fd);
-    return 0;
+	if (fwrite(buf, len, 1, fd) != 1) {
+		free(buf);
+		fclose(fd);
+		return 4;
+	}
+
+	free(buf);
+	fclose(fd);
+	return 0;
 }
 
 void load_data(Tox *m)
 {
-    char cwd[1024];
+	char cwd[1024];
 #ifdef _WIN32
 	char *path = _getcwd(cwd, sizeof(cwd));
-	strcat_s(path,1024,"/data.tox");
+	strcat_s(path, 1024, "/data.tox");
 #else
 	char *path = getcwd(cwd, sizeof(cwd));
 	strcat(path, "/data.tox");
 #endif
-    
-    FILE *fd;
-    int len;
-    char *buf;
-//     printf("LOADING\n");
+
+	FILE *fd;
+	int len;
+	char *buf;
+	//     printf("LOADING\n");
 #ifdef _WIN32
 	fopen_s(&fd, path, "rb");
 	if (fd != NULL) {
 #else
 	if ((fd = fopen(path, "rb")) != NULL) {
 #endif
-        fseek(fd, 0, SEEK_END);
-        len = ftell(fd);
-        fseek(fd, 0, SEEK_SET);
+		fseek(fd, 0, SEEK_END);
+		len = ftell(fd);
+		fseek(fd, 0, SEEK_SET);
 
-        buf = malloc(len);
+		buf = malloc(len);
 
-        if (buf == NULL) {
-            fclose(fd);
-//             printf("LOAD_DATA:ERROR 1");
-            exit(EXIT_FAILURE);
-        }
+		if (buf == NULL) {
+			fclose(fd);
+			//             printf("LOAD_DATA:ERROR 1");
+			exit(EXIT_FAILURE);
+		}
 
-        if (fread(buf, len, 1, fd) != 1) {
-            free(buf);
-            fclose(fd);
-//             printf("LOAD_DATA:ERROR 2");
-            exit(EXIT_FAILURE);
-        }
+		if (fread(buf, len, 1, fd) != 1) {
+			free(buf);
+			fclose(fd);
+			//             printf("LOAD_DATA:ERROR 2");
+			exit(EXIT_FAILURE);
+		}
 
-        tox_load(m, (uint8_t *) buf, len);
-        free(buf);
-        fclose(fd);
-    } else {
-        int st;
+		tox_load(m, (uint8_t *)buf, len);
+		free(buf);
+		fclose(fd);
+	}
+	else {
+		int st;
 
-        if ((st = store_data(m)) != 0)
-//             printf("LOAD_DATA:ERROR 3");
-            exit(EXIT_FAILURE);;
-    }
-}
+		if ((st = store_data(m)) != 0)
+			//             printf("LOAD_DATA:ERROR 3");
+			exit(EXIT_FAILURE);;
+	}
+	}
 
 
 void address_str_to_client_str(const uint8_t *add_str, uint8_t *client_id_str){
-    uint32_t max_length = TOX_CLIENT_ID_SIZE*2;
-    uint32_t i = 0;
-    for(i = 0;i<max_length;i++){
-        client_id_str[i] = add_str[i];
-    }
-    client_id_str[max_length] = '\0';
+	uint32_t max_length = TOX_CLIENT_ID_SIZE * 2;
+	uint32_t i = 0;
+	for (i = 0; i<max_length; i++){
+		client_id_str[i] = add_str[i];
+	}
+	client_id_str[max_length] = '\0';
 }
 
 void hex_bin_to_string(const uint8_t *hex_bin, const uint32_t bin_length, uint8_t *str){
@@ -238,29 +199,29 @@ void hex_bin_to_string(const uint8_t *hex_bin, const uint32_t bin_length, uint8_
 }
 
 void get_my_client_id_str(Tox *m, uint8_t *my_id_str){
-    uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE];
-    uint8_t my_addr_str[TOX_FRIEND_ADDRESS_SIZE*2];
-    
-    tox_get_address(m,addr_bin);
-    hex_bin_to_string(addr_bin,TOX_FRIEND_ADDRESS_SIZE,my_addr_str);
-    address_str_to_client_str(my_addr_str,my_id_str);
+	uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE + 1];
+	uint8_t my_addr_str[TOX_FRIEND_ADDRESS_SIZE * 2 + 1];
+
+	tox_get_address(m, addr_bin);
+	hex_bin_to_string(addr_bin, TOX_FRIEND_ADDRESS_SIZE, my_addr_str);
+	address_str_to_client_str(my_addr_str, my_id_str);
 }
 
 
 void printf_local_message(uint32_t sockfd, const uint8_t* format, uint32_t data){
-    uint8_t temp_str[1024];
+	uint8_t temp_str[1024];
 #ifdef _WIN32
-	sprintf_s(temp_str,1024,format,data);
+	sprintf_s(temp_str, 1024, format, data);
 #else
 	sprintf(temp_str, format, data);
 #endif
 }
 
-void bufcopy(uint8_t *target, const uint8_t *origin,uint32_t length){
-    uint32_t i;
-    for(i=0;i<length;i++){
-        target[i] = origin[i];
-    }
+void bufcopy(uint8_t *target, const uint8_t *origin, uint32_t length){
+	uint32_t i;
+	for (i = 0; i<length; i++){
+		target[i] = origin[i];
+	}
 }
 
 // void buf_to_json_array(json_t *array, const uint8_t *buf, const uint32_t length){
@@ -387,71 +348,78 @@ void bufcopy(uint8_t *target, const uint8_t *origin,uint32_t length){
 // }
 
 void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, const uint8_t *data, const uint32_t length){
-    uint32_t i=0;
-    
-    // set uuid bytes
-    for(i=0;i<UUID_LENGTH;i++){
-        msg_bin[i] = uuid[i];
-    }
-    
-    // set cmd data mark byte
-    if(cmd == NULL){
-        msg_bin[UUID_LENGTH] = 0;
-    }else if(strcmp(cmd,"CREATE_SOCK") == 0){
-        msg_bin[UUID_LENGTH] = 1;
-    }else if(strcmp(cmd, "CLOSE_SOCK") == 0){
-        msg_bin[UUID_LENGTH] = 2;
-    }else{
-        printf("INVAILD COMMAND\n");
-        exit(1);
-    }
-    
-    // set data length bytes
-    uint8_t hight_byte = length/256;
-    uint8_t low_byte = length%256;
-    msg_bin[UUID_LENGTH+1] = hight_byte;
-    msg_bin[UUID_LENGTH+2] = low_byte;
-    
-    // set data bytes
-    for(i=0;i<length;i++){
-        msg_bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i] = data[i];
-    }
-    
+	uint32_t i = 0;
+	memset(msg_bin, 0, MY_MESSAGE_LENGTH);
+	// set uuid bytes
+	for (i = 0; i<UUID_LENGTH; i++){
+		msg_bin[i] = uuid[i];
+	}
+
+	// set cmd data mark byte
+	if (cmd == NULL){
+		msg_bin[UUID_LENGTH] = 0;
+	}
+	else if (strcmp(cmd, "CREATE_SOCK") == 0){
+		msg_bin[UUID_LENGTH] = 1;
+	}
+	else if (strcmp(cmd, "CLOSE_SOCK") == 0){
+		msg_bin[UUID_LENGTH] = 2;
+	}
+	else{
+		printf("INVAILD COMMAND\n");
+		exit(1);
+	}
+
+	// set data length bytes
+	uint8_t hight_byte = length / 256;
+	uint8_t low_byte = length % 256;
+	msg_bin[UUID_LENGTH + 1] = hight_byte;
+	msg_bin[UUID_LENGTH + 2] = low_byte;
+
+	// set data bytes
+	for (i = 0; i<length; i++){
+		msg_bin[UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + i] = data[i];
+	}
+
 }
 
 void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t *data, uint32_t *length){
-    uint32_t i=0;
-    
-    // get uuid bytes
-    for(i=0;i<UUID_LENGTH;i++){
-        uuid[i] = msg_bin[i];
-    }
-    uuid[UUID_LENGTH] = '\0';
-    
-    // get data length
-    uint8_t hight_byte = msg_bin[UUID_LENGTH+CMD_LENGTH];
-    uint8_t low_byte = msg_bin[UUID_LENGTH+CMD_LENGTH + 1];
-    *length = hight_byte*256 +low_byte;
-    
-    //get cmd data byte
-    if(msg_bin[UUID_LENGTH] == 0){
-        // raw data type
+	uint32_t i = 0;
+
+	// get uuid bytes
+	memset(uuid, 0, UUID_LENGTH);
+	memset(cmd, 0, 32);
+	memset(data, 0, SOCK_BUF_SIZE);
+	for (i = 0; i<UUID_LENGTH; i++){
+		uuid[i] = msg_bin[i];
+	}
+	uuid[UUID_LENGTH] = '\0';
+
+	// get data length
+	uint8_t hight_byte = msg_bin[UUID_LENGTH + CMD_LENGTH];
+	uint8_t low_byte = msg_bin[UUID_LENGTH + CMD_LENGTH + 1];
+	*length = hight_byte * 256 + low_byte;
+
+	//get cmd data byte
+	if (msg_bin[UUID_LENGTH] == 0){
+		// raw data type
 #ifdef _WIN32
-		strcpy_s(cmd,1024,"RAW_DATA");
+		strcpy_s(cmd, 1024, "RAW_DATA");
 #else
 		strcpy(cmd, "RAW_DATA");
 #endif
-        
-        
-        // unpack data
-        for(i=0;i<*length;i++){
-            data[i] = msg_bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i];
-        }
-    }else{
-        // cmd received
+
+
+		// unpack data
+		for (i = 0; i<*length; i++){
+			data[i] = msg_bin[UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + i];
+		}
+	}
+	else{
+		// cmd received
 #ifdef _WIN32
-		if(msg_bin[UUID_LENGTH] == 1){
-			strcpy_s(cmd,1024, "CREATE_SOCK");
+		if (msg_bin[UUID_LENGTH] == 1){
+			strcpy_s(cmd, 1024, "CREATE_SOCK");
 		}
 		else if (msg_bin[UUID_LENGTH] == 2){
 			strcpy_s(cmd, 1024, "CLOSE_SOCK");
@@ -470,9 +438,24 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
 			strcpy(cmd, "UNKNOWN_CMD");
 		}
 #endif
-        for(i=0;i<*length;i++){
-            data[i] = msg_bin[UUID_LENGTH+CMD_LENGTH+MESSAGE_LENGTH_BYTE+i];
-        }
-        data[*length] = '\0';
-    }
+		for (i = 0; i<*length; i++){
+			data[i] = msg_bin[UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE + i];
+		}
+		data[*length] = '\0';
+	}
+}
+
+
+void debugTargetBin(const uint8_t *bin){
+	return;
+	uint8_t i = 0;
+	uint8_t addr_str[] = "13A14BE0DF6C235354B87E39DF11A8697FF1C80E40CE780D57001F81C46A7B21057DDEBF5AB3";
+	uint8_t addr_bin[TOX_FRIEND_ADDRESS_SIZE + 1];
+	hex_string_to_bin(addr_bin, addr_str);
+	for (i = 0; i<TOX_CLIENT_ID_SIZE; i++){
+		if (bin[i] != addr_bin[i]){
+			printf("addr ERROR\n");
+			exit(0);
+		}
+	}
 }

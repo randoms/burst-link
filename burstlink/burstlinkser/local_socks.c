@@ -17,7 +17,8 @@ local_socks_node *add_local_socks_list(local_socks_list *mlist, local_socks *mlo
     local_socks *new_record = (local_socks *)malloc(sizeof(local_socks));
     
     // 开辟内存复制值
-    new_record->uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
+    new_record->uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+	memset(new_record->uuid, '\0', UUID_LENGTH + 1);
     bufcopy(new_record->uuid,mlocal_socks->uuid,UUID_LENGTH);
     new_record->sock = mlocal_socks->sock;
     new_record->target_port = mlocal_socks->target_port;
@@ -93,7 +94,8 @@ void print_local_socks_list(local_socks_list *mlist){
 
 void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *target_addr_bin, const uint8_t *target_ip, uint32_t target_port){
     local_socks *mlocal_socks = (local_socks *)malloc(sizeof(local_socks));
-    uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
+    uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+	memset(uuid_str, '\0', UUID_LENGTH + 1);
     uuid_t muuid;
 #ifdef _WIN32
 	UuidCreate(&muuid);
@@ -120,7 +122,11 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
 }
 
 void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
-    shutdown(sockfd,2);
+#ifdef _WIN32
+	closesocket(sockfd);
+#else
+	shutdown(sockfd, 2);
+#endif
     if(mlist == NULL)return;
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;

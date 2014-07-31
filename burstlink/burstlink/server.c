@@ -226,26 +226,25 @@ void *tox_works(void *a){
 
 void intHandler(int dummy) {
     store_data(my_tox);
+	WSACleanup();
     printf("EXITING...\n");
     exit(EXIT_SUCCESS);
 }
 
 
 #ifdef _WIN32
-uint32_t init_local_sock_serv(uint32_t local_port){
-    uint32_t iServerSock;
+int32_t init_local_sock_serv(uint32_t local_port){
+    int32_t iServerSock;
     struct sockaddr_in ServerAddr;
     WSADATA WSAData;
     
     if(WSAStartup(MAKEWORD(1, 1), &WSAData)){
         printf("initializationing error!\n");
-        WSACleanup();
         exit(0);
     }
 
     if((iServerSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
         printf("create socket failed\n");
-        WSACleanup();
         exit(0);
     }
 
@@ -256,13 +255,11 @@ uint32_t init_local_sock_serv(uint32_t local_port){
     
     if(bind(iServerSock, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1){
         printf("bind failed!\n");
-        WSACleanup();
         exit(0);
     }
 
     if(listen(iServerSock, 5) == -1){
         printf("listen failed!\n");
-        WSACleanup();
         exit(0);
     }
     return iServerSock;
@@ -278,13 +275,11 @@ int init_local_sock(int local_port){
 
     if(WSAStartup(MAKEWORD(1, 1), &WSAData)){
         printf("initializationing error!\n");
-        WSACleanup();
         exit(0);
     }
 
     if((iClientSock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET){
         printf("create socket failed!\n");
-        WSACleanup();
         exit(0);
     }
 
@@ -295,7 +290,6 @@ int init_local_sock(int local_port){
 
     if(connect(iClientSock, (struct sockaddr *) & ServerAddr, sizeof(struct sockaddr)) == -1){
         printf("connect failed");
-        WSACleanup();
         exit(0);
     }
     
@@ -304,7 +298,7 @@ int init_local_sock(int local_port){
 
 #else
 
-uint32_t init_local_sock(uint32_t local_port){
+int32_t init_local_sock(uint32_t local_port){
     struct sockaddr_in serv_addr;
     struct hostent *server;
     
@@ -327,7 +321,7 @@ uint32_t init_local_sock(uint32_t local_port){
     return sockfd;
 }
 
-uint32_t init_local_sock_serv(uint32_t local_port){
+int32_t init_local_sock_serv(uint32_t local_port){
     int sockfd;
     struct sockaddr_in serv_addr;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -366,7 +360,6 @@ int32_t writeCSock(uint32_t sockfd, const uint8_t *buf, uint32_t length){
 int32_t closeCSock(uint32_t sockfd){
 #ifdef _WIN32
     int res =  closesocket(sockfd);
-    WSACleanup();
 	return res;
 #else
     return shutdown(sockfd,2);
@@ -534,7 +527,7 @@ void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
 void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uint32_t length, const uint8_t *client_id_bin){
     // get sockfd from uuid
     
-    uint32_t sockfd = get_local_socks(msocks_list,uuid);
+    int32_t sockfd = get_local_socks(msocks_list,uuid);
     
     // send data to target socket
     if(sockfd != 0){
@@ -595,15 +588,10 @@ void *on_local_sock_connect(void *msockfd){
     // read data error
     // close remote and local sock
     printf("CLOSE LOCAL SOCK\n");
-    printf("OK1\n");
     closeCSock(sockfd);
-    printf("OK2\n");
     close_remote_socket(uuid,target_addr_bin);
-    printf("OK3\n");
     close_local_socks(msocks_list,sockfd);
-    printf("OK4\n");
     free(target_addr_bin);
-    printf("OK5\n");
 	return NULL;
 }
 
@@ -696,17 +684,19 @@ int main(int argc, char *argv[])
     while(1){
         struct sockaddr_in cli_addr;
         uint32_t clilen = sizeof(cli_addr);
-        uint32_t newsockfd = accept(local_socksfd, 
-                    (struct sockaddr *) &cli_addr, 
-                    &clilen);
-        if (newsockfd < 0){
-            printf("LOCAL_SOCK:ERROR\n");
-            continue;
-        }
+		int32_t newsockfd = accept(local_socksfd,
+			(struct sockaddr *) &cli_addr,
+			&clilen);
         
-        // start a new thread
-        pthread_t new_sock_thread;
-        pthread_create( &new_sock_thread, NULL, on_local_sock_connect,&newsockfd);
+		if (newsockfd < 0){
+			printf("socket error\n");
+		}
+		else{
+			printf("accepted:%d\n", newsockfd);
+			// start a new thread
+			pthread_t new_sock_thread;
+			pthread_create(&new_sock_thread, NULL, on_local_sock_connect, &newsockfd);
+		}
     }
     
     printf("EXITED\n");
