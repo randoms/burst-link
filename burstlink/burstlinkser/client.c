@@ -19,7 +19,6 @@ Tox *my_tox;
 uint8_t msg_task_flag = 0; // 1 not available, 0 available
 uint8_t msg_rec_flag = 0;
 Queue *msg_task_queue; // 消息处队列
-Queue *msg_rec_queue; //需要传递给node端的信息
 Msg_listener_list *msg_listener_list = NULL;
 uint8_t MODE = 0; // 0 req mode 1,server mode
 uint8_t offline_count = 0;
@@ -661,7 +660,6 @@ int main(int argc, char *argv[])
     msg_task_flag = 0; // 1 when msg is not available
     msg_rec_flag = 0; // 1 when rec_queue is not available
     msg_task_queue = createQueue(MAX_MSG_CACHE); // 远程操作消息队列
-    msg_rec_queue = createQueue(MAX_MSG_CACHE); // 本地操作消息队列
     
     // 開始tox線程
     pthread_t tox_thread;
