@@ -85,10 +85,8 @@ void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *da
 }
 
 void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t length, void *userdata) {
-	uint8_t *client_id_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_CLIENT_ID_SIZE);
-	memset(client_id_bin, 0, TOX_CLIENT_ID_SIZE);
-	uint8_t *client_id_str = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_CLIENT_ID_SIZE * 2 + 1));
-	memset(client_id_str, 0, TOX_CLIENT_ID_SIZE * 2 + 1);
+	uint8_t client_id_bin[TOX_CLIENT_ID_SIZE+1];
+    uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
     tox_get_client_id(m,friendnumber,client_id_bin);
     hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
@@ -439,17 +437,6 @@ void send_data_remote(){
         int res = -1;
         int retry_count = 0;
         //debug_msg_bin(bin);
-		/*
-		uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
-		uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t) * 128);
-		uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
-		uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
-		unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
-		printf("CMD:%s\n", cmd);
-		printf("UUID:%s\n", uuid);
-		
-		if(strcmp(cmd,"RAW_DATA") != 0)printf("MESSAGE:%s\n", data);
-        */
         while(res <=0 && retry_count <5){
             res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
             retry_count += 1;
