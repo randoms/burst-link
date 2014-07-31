@@ -242,7 +242,9 @@ void *tox_works(void *a){
 
 void intHandler(int dummy) {
     store_data(my_tox);
+#ifdef _WIN32
 	WSACleanup();
+#endif
     printf("EXITING...\n");
     exit(EXIT_SUCCESS);
 }
