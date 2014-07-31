@@ -52,4 +52,6 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
 const uint8_t *get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd);
 int set_local_socks_ready(local_socks_list *mlist, uint32_t sockfd);
 int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd);
+int debug_local_socket(local_socks_list *mlist);
+void print_local_socks_list(local_socks_list *mlist);
 #endif

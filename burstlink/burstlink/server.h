@@ -8,8 +8,9 @@
 #include <sys/types.h> 
 
 #ifdef _WIN32
+#include <winsock2.h>
 #include <windows.h>
-#include <winsock.h>
+
 #include "pthread.h"
 #else
 #include <sys/socket.h>
@@ -52,4 +53,5 @@ void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin);
 void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uint32_t length, const uint8_t *client_id_bin);
 void debug_data(const uint8_t *data,uint32_t length);
 void debug_msg_bin(uint8_t *msg_bin);
+int32_t closeCSock(uint32_t sockfd);
 #endif

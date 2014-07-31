@@ -1,4 +1,4 @@
-﻿Build started 2014/7/28 16:50:06.
+﻿Build started 2014/7/31 12:06:37.
 Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\burstlink\burstlink.vcxproj" on node 2 (Rebuild target(s)).
 ClCompile:
   C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt connect.c local_socks.c message_listener.c queue.c server.c utils\utils.c
@@ -22,4 +22,4 @@ Done Building Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\bu
 
 Build succeeded.
 
-Time Elapsed 00:00:04.22
+Time Elapsed 00:00:06.15

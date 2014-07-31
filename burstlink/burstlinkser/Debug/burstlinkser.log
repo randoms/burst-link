@@ -1,0 +1,23 @@
+﻿Build started 2014/7/30 20:06:44.
+Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\burstlinkser\burstlinkser.vcxproj" on node 2 (Build target(s)).
+C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(388,5): warning MSB8028: The intermediate directory (Debug\) contains files shared from another project (burstlink.vcxproj).  This can lead to incorrect clean and rebuild behavior.
+ClCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\burstlinkser.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt client.c connect.c local_socks.c message_listener.c queue.c utils\utils.c
+  utils.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\utils\utils.c(456): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  queue.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\queue.c(113): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  message_listener.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\message_listener.c(188): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  local_socks.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\local_socks.c(334): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  connect.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\connect.c(126): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  client.c
+c:\users\randoms\documents\github\burst-link\burstlink\burstlinkser\client.c(719): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "stdafx.h"' to your source?
+  Generating Code...
+Done Building Project "C:\Users\Randoms\Documents\Github\burst-link\burstlink\burstlinkser\burstlinkser.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:02.82
