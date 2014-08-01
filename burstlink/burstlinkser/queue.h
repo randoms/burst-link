@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include "pthread.h"
+#else
+#include <pthread.h>
+#endif
 #include "defines.h"
 #include "toxcore/tox.h"
 #include "utils/utils.h"

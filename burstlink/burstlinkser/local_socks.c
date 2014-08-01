@@ -4,28 +4,37 @@
 #pragma comment(lib,"rpcrt4.lib")
 #endif
 
+pthread_mutex_t msock_lock = PTHREAD_MUTEX_INITIALIZER;
+
 local_socks_list *create_local_socks_list(){
+    pthread_mutex_lock(&msock_lock );
     local_socks_list *mlist = (local_socks_list *)malloc(sizeof(local_socks_list));
     mlist->head = NULL;
     mlist->size = 0;
+    pthread_mutex_unlock(&msock_lock);
     return mlist;
 }
 
 
 local_socks_node *add_local_socks_list(local_socks_list *mlist, local_socks *mlocal_socks){
+    
+    pthread_mutex_lock(&msock_lock );
+    
+    
     // add a new record to the head of list
     local_socks *new_record = (local_socks *)malloc(sizeof(local_socks));
     
     // 开辟内存复制值
     new_record->uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
 	memset(new_record->uuid, '\0', UUID_LENGTH + 1);
-    bufcopy(new_record->uuid,mlocal_socks->uuid,UUID_LENGTH);
+    memcpy(new_record->uuid,mlocal_socks->uuid,UUID_LENGTH);
     new_record->sock = mlocal_socks->sock;
     new_record->target_port = mlocal_socks->target_port;
     new_record->target_ip = (uint8_t *)malloc(sizeof(uint8_t)*4);
-    bufcopy(new_record->target_ip,mlocal_socks->target_ip,4);
+    memcpy(new_record->target_ip,mlocal_socks->target_ip,4);
     new_record->target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-    bufcopy(new_record->target_addr_bin,mlocal_socks->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
+    //memset(new_record->target_addr_bin,'\0',TOX_FRIEND_ADDRESS_SIZE+1);
+    memcpy(new_record->target_addr_bin,mlocal_socks->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     
     local_socks_node *new_header = (local_socks_node *)malloc(sizeof(local_socks_node));
     new_header->previous = NULL;
@@ -42,10 +51,14 @@ local_socks_node *add_local_socks_list(local_socks_list *mlist, local_socks *mlo
     // change new head
     mlist->head = new_header;
     mlist->size += 1;
+    pthread_mutex_unlock(&msock_lock);
     return new_header;
 }
 
 void remove_local_socks_list(local_socks_list *mlist, local_socks_node *mnode){
+    
+    pthread_mutex_lock(&msock_lock );
+    
     local_socks_node *previous_node = mnode->previous;
     local_socks_node *after_node = mnode->after;
     
@@ -64,14 +77,20 @@ void remove_local_socks_list(local_socks_list *mlist, local_socks_node *mnode){
     free(mnode->me);
     free(mnode);
     mlist->size -= 1;
+    
+    pthread_mutex_unlock(&msock_lock);
 }
 
 /**
  * print the content of message list
  */
 void print_local_socks_list(local_socks_list *mlist){
+    
+    pthread_mutex_lock(&msock_lock );
+    
     if(mlist->head == NULL){
         printf("NULL\n");
+        pthread_mutex_unlock(&msock_lock); 
         return;
     }
     local_socks_node temp = *(mlist->head);
@@ -90,9 +109,14 @@ void print_local_socks_list(local_socks_list *mlist){
     printf("socket:%d\n",temp_record.sock);
     printf("uuid:%s\n",temp_record.uuid);
     
+    pthread_mutex_unlock(&msock_lock);
+    
 }
 
 void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *target_addr_bin, const uint8_t *target_ip, uint32_t target_port){
+    
+    pthread_mutex_lock(&msock_lock );
+    
     local_socks *mlocal_socks = (local_socks *)malloc(sizeof(local_socks));
     uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
 	memset(uuid_str, '\0', UUID_LENGTH + 1);
@@ -108,57 +132,80 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     mlocal_socks->sock = sockfd;
     mlocal_socks->ready_flag = 0;
     uint8_t mtarget_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
-    bufcopy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
+    memcpy(mtarget_addr_bin,target_addr_bin,TOX_FRIEND_ADDRESS_SIZE);
     mlocal_socks->target_addr_bin = mtarget_addr_bin;
     uint8_t mip[4+1];
-    bufcopy(mip,target_ip,4);
+    memcpy(mip,target_ip,4);
     mlocal_socks->target_ip = mip;
     mlocal_socks->target_port = target_port;
     add_local_socks_list(mlist,mlocal_socks);
     free(uuid_str);
     free(mlocal_socks);
     printf("add_local_socks\n");
-    debug_local_socket(mlist);
+    //debug_local_socket(mlist);
+    pthread_mutex_unlock(&msock_lock);
 }
 
-void close_local_socks(local_socks_list *mlist, uint32_t sockfd){
+int close_local_socks(local_socks_list *mlist, uint32_t sockfd){
+    
+    pthread_mutex_lock(&msock_lock );
 #ifdef _WIN32
 	closesocket(sockfd);
 #else
 	shutdown(sockfd, 2);
 #endif
-    if(mlist == NULL)return;
+    if(mlist == NULL){
+        pthread_mutex_unlock(&msock_lock);
+        return 0;
+    }
+    printf("close_local_socks OK1\n");
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
+            printf("close_local_socks OK 1.1\n");
             remove_local_socks_list(mlist, temp);
+            printf("close_local_socks OK 1.2\n");
             printf("close_local_socks\n");
-            debug_local_socket(mlist);
-            return;
+            //debug_local_socket(mlist);
+            pthread_mutex_unlock(&msock_lock);
+            return 1;
         }
+        printf("close_local_socks OK1.3\n");
         temp = temp->after;
     }
+    printf("close_local_socks OK2\n");
     // check the last one
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
+        printf("close_local_socks OK 2.1\n");
         remove_local_socks_list(mlist, temp);
+        printf("close_local_socks OK 2.2\n");
         printf("close_local_socks\n");
-        debug_local_socket(mlist);
-        return;
+        //debug_local_socket(mlist);
+        pthread_mutex_unlock(&msock_lock);
+        return 1;
     }
+    printf("close_local_socks OK3\n");
     printf("close not found\n");
+    pthread_mutex_unlock(&msock_lock);
+    return 0;
 }
 
 uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
-    if(mlist == NULL)return 0;
-    if(mlist->size == 0)return 0;
+    pthread_mutex_lock(&msock_lock );
+    
+    if(mlist == NULL || mlist->size == 0){
+        pthread_mutex_unlock(&msock_lock);
+        return 0;
+    }
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if(strcmp(temp_sock->uuid,uuid) == 0){
+            pthread_mutex_unlock(&msock_lock);
             return temp_sock->sock;
         }
         temp = temp->after;
@@ -166,51 +213,63 @@ uint32_t get_local_socks(local_socks_list *mlist, const uint8_t *uuid){
     // check the last one
     temp_sock = temp->me;
     if(strcmp(temp_sock->uuid,uuid) == 0){
+        pthread_mutex_unlock(&msock_lock);
         return temp_sock->sock;
     }
     // not found set to 0
+    pthread_mutex_unlock(&msock_lock);
     return 0;
 }
 
 
-uint8_t *get_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd){
-    if(mlist == NULL)return NULL;
-    if(mlist->size == 0)return NULL;
+void get_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, uint8_t *uuid){
+    
+    pthread_mutex_lock(&msock_lock );
+    
+    memset(uuid,'\0',UUID_LENGTH+1);
+    if(mlist == NULL || mlist->size == 0){
+        pthread_mutex_unlock(&msock_lock);
+        return;
+    }
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
-            return temp_sock->uuid;
+            memcpy(uuid,temp_sock->uuid,UUID_LENGTH+1);
+            pthread_mutex_unlock(&msock_lock);
+            return;
         }
         temp = temp->after;
     }
     // check the last one
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
-        return temp_sock->uuid;
+        memcpy(uuid,temp_sock->uuid,UUID_LENGTH+1);
+        pthread_mutex_unlock(&msock_lock);
+        return;
     }
     // not found set to null
-    return NULL;
+    pthread_mutex_unlock(&msock_lock);
+    return;
 }
 
 uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const uint8_t *uuid){
-    if(mlist == NULL)return 0;
-    if(mlist->size == 0)return 0;
-    if(strlen(uuid) != UUID_LENGTH)return 0; // uuid format error
+    pthread_mutex_lock(&msock_lock );
+    
+    if(mlist == NULL || mlist->size == 0 || strlen(uuid) != UUID_LENGTH){
+        pthread_mutex_unlock(&msock_lock);
+        return 0;
+    }
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
 		
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
-#ifdef _WIN32
-			bufcopy(temp_sock->uuid,uuid,UUID_LENGTH);
-#else
-			strcpy(temp_sock->uuid, uuid);
-#endif
+			memcpy(temp_sock->uuid,uuid,UUID_LENGTH);
             printf("set uuid\n");
-            debug_local_socket(mlist);
+            pthread_mutex_unlock(&msock_lock);
             return 1;
         }
         temp = temp->after;
@@ -218,53 +277,66 @@ uint32_t set_local_socks_uuid(local_socks_list *mlist, uint32_t sockfd, const ui
     // check the last one
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
-#ifdef _WIN32
-		bufcopy(temp_sock->uuid, uuid, UUID_LENGTH);
-#else
-		strcpy(temp_sock->uuid, uuid);
-#endif
+		memcpy(temp_sock->uuid, uuid, UUID_LENGTH);
         printf("set uuid\n");
-        debug_local_socket(mlist);
+        pthread_mutex_unlock(&msock_lock);
         return 1;
     }
     // not found set to null
     printf("set uuid\n");
-    debug_local_socket(mlist);
+    pthread_mutex_unlock(&msock_lock);
     return 0;
 }
 
-const uint8_t *get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd){
-    if(mlist == NULL)return NULL;
-    if(mlist->size == 0)return NULL;
+void get_local_socks_addr_bin(local_socks_list *mlist, uint32_t sockfd, uint8_t *target_addr_bin){
+    pthread_mutex_lock(&msock_lock );
+    
+    memset(target_addr_bin, '\0', TOX_FRIEND_ADDRESS_SIZE);
+    if(mlist == NULL || mlist->size == 0){
+        pthread_mutex_unlock(&msock_lock);
+        return;
+    }
+    
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
-            return temp_sock->target_addr_bin;
+            memcpy(target_addr_bin, temp_sock->target_addr_bin, TOX_FRIEND_ADDRESS_SIZE);
+            pthread_mutex_unlock(&msock_lock);
+            return;
         }
         temp = temp->after;
     }
     // check the last one
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
-        return temp_sock->target_addr_bin;
+        memcpy(target_addr_bin, temp_sock->target_addr_bin, TOX_FRIEND_ADDRESS_SIZE);
+        pthread_mutex_unlock(&msock_lock);
+        return;
     }
     // not found set to null
     printf("NOT FOUND\n");
     printf("TARGET:%d\n",sockfd);
-    return NULL;
+    pthread_mutex_unlock(&msock_lock);
+    return;
 }
 
 int set_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
-    if(mlist == NULL)return 0;
-    if(mlist->size == 0)return 0;
+    pthread_mutex_lock(&msock_lock );
+    
+    if(mlist == NULL || mlist->size == 0){
+        pthread_mutex_unlock(&msock_lock);
+        return 0;
+    }
+    
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
             temp_sock->ready_flag = 1;
+            pthread_mutex_unlock(&msock_lock);
             return 1;
         }
         temp = temp->after;
@@ -273,20 +345,27 @@ int set_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
         temp_sock->ready_flag = 1;
+        pthread_mutex_unlock(&msock_lock);
         return 1;
     }
     // not found set to null
+    pthread_mutex_unlock(&msock_lock);
     return 0;
 }
 
 int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
-    if(mlist == NULL)return 0;
-    if(mlist->size == 0)return 0;
+    pthread_mutex_lock(&msock_lock );
+    
+    if(mlist == NULL || mlist->size == 0){
+        pthread_mutex_unlock(&msock_lock);
+        return 0;
+    }
     local_socks_node *temp = mlist->head;
     local_socks *temp_sock;
     while(temp->after != NULL){
         temp_sock = temp->me;
         if((temp_sock->sock) == sockfd){
+            pthread_mutex_unlock(&msock_lock);
             return temp_sock->ready_flag;
         }
         temp = temp->after;
@@ -294,9 +373,11 @@ int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
     // check the last one
     temp_sock = temp->me;
     if((temp_sock->sock) == sockfd){
+        pthread_mutex_unlock(&msock_lock);
         return temp_sock->ready_flag;
     }
     // not found set to null
+    pthread_mutex_unlock(&msock_lock);
     return 0;
 }
 

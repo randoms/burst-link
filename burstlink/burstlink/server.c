@@ -118,7 +118,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
                 int32_t sockfd = get_local_socks(msocks_list,uuid);
-                closeCSock(sockfd);
+                close_local_socks(msocks_list,sockfd);
             }
         }
         
@@ -525,7 +525,7 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
     }else{
         // socket might be closed
         printf("INVALID SOCKET, CLOSE IT\n");
-        //close_remote_socket(uuid,client_id_bin);
+        close_remote_socket(uuid,client_id_bin);
     }
 }
 
@@ -562,7 +562,9 @@ void *on_local_sock_connect(void *msockfd){
     printf("CONNECTED\n");
     // create remote socket
     const uint8_t *uuid = get_local_socks_uuid(msocks_list,sockfd);
+    printf("connect 1\n");
     create_remote_socket(uuid,target_addr_bin,target_ip,target_port);
+    printf("connect 2\n");
     uint8_t buf[SOCK_BUF_SIZE];
     int length = 1;
     while(length > 0){
@@ -578,7 +580,8 @@ void *on_local_sock_connect(void *msockfd){
     // close remote and local sock
     printf("CLOSE LOCAL SOCK\n");
     closeCSock(sockfd);
-    close_remote_socket(uuid,target_addr_bin);
+    if(get_local_socks(msocks_list, uuid) != 0)
+        close_remote_socket(uuid,target_addr_bin);
     close_local_socks(msocks_list,sockfd);
     free(target_addr_bin);
 	return NULL;

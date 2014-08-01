@@ -16,8 +16,6 @@
  * Globals
  */
 Tox *my_tox;
-uint8_t msg_task_flag = 0; // 1 not available, 0 available
-uint8_t msg_rec_flag = 0;
 Queue *msg_task_queue; // 消息处队列
 Msg_listener_list *msg_listener_list = NULL;
 uint8_t MODE = 0; // 0 req mode 1,server mode
@@ -100,6 +98,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
         
         // parse message
         uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+        memset(uuid,'\0',UUID_LENGTH+1);
         uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
         uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
         uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
@@ -114,7 +113,7 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
             printf("CMD:%s\n",cmd);
             if(strcmp(cmd,"CLOSE_SOCK") == 0){
                 int32_t sockfd = get_local_socks(msocks_list,uuid);
-                closeCSock(sockfd);
+                close_local_socks(msocks_list,sockfd);
                 printf("CLOSE OK\n");
             }else if(strcmp(cmd, "CREATE_SOCK") == 0){
                 printf("CREATE SOCKET\n");
@@ -225,7 +224,7 @@ void *tox_works(void *a){
             }
         }
         tox_do(my_tox);
-        if(msg_task_queue->size != 0 && msg_task_flag == 0){
+        if(msg_task_queue->size != 0){
             send_data_remote();
         }else{
 #ifdef _WIN32
@@ -403,10 +402,11 @@ void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, cons
 	// add msg to message queue
 	MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
 	uint8_t *mtarget_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
-	bufcopy(mtarget_addr_bin, target_addr_bin, TOX_FRIEND_ADDRESS_SIZE);
+	memcpy(mtarget_addr_bin, target_addr_bin, TOX_FRIEND_ADDRESS_SIZE);
 	newTask->target_addr_bin = mtarget_addr_bin;
 	newTask->msg = msg_bin;
-	while (msg_task_flag == 1 || (msg_task_queue->size) >= MAX_MSG_CACHE - 10){
+    srand(time(NULL));
+	while ((msg_task_queue->size) >= MAX_MSG_CACHE){
 #ifdef _WIN32
 		Sleep(1);
 #else
@@ -414,9 +414,7 @@ void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, cons
 #endif
 	};
 	// enter queue
-	msg_task_flag = 1;
 	Enqueue(msg_task_queue, newTask);
-	msg_task_flag = 0;
 	// free space
 	free(msg_bin);
 	free(mtarget_addr_bin);
@@ -434,19 +432,48 @@ void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, cons
  * and write_data_remote will be block at the same time
  */
 void send_data_remote(){
-    if(msg_task_queue->size != 0 && msg_task_flag == 0){
-        msg_task_flag = 1;
-        MSGTask *mTask = front(msg_task_queue); // 开始处理
-        int friend_num = tox_get_friend_number(my_tox,mTask->target_addr_bin);
-        int res = -1;
-        int retry_count = 0;
-        while(res <=0 && retry_count <5){
-            res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
-            retry_count += 1;
+        
+    MSGTask *mTask = front(msg_task_queue); // 开始处理
+    int friend_num = tox_get_friend_number(my_tox,mTask->target_addr_bin);
+    int res = -1;
+    int retry_count = 0;
+    while(res <=0 && retry_count <5){
+        res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
+        retry_count += 1;
+        if(tox_get_friend_connection_status(my_tox,friend_num) != 1 && friend_num == -1){
+            printf("friend num %d\n",friend_num);
+            //close the relate socket
+            uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+            memset(uuid,'\0',UUID_LENGTH+1);
+            uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
+            uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
+            uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
+            unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
+            printf("UUID:%s\n",uuid);
+            printf("message num:%d\n",msg_task_queue->size);
+            uint8_t bin_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
+            hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,bin_str);
+            printf("TARGET ADDR BIN:%s\n",bin_str);
+            // free data
+            free(uuid);
+            free(cmd);
+            free(data);
+            free(length);
+            exit(0);
+        }
+        
+    }
+    if(retry_count >=5){
+        offline_count += 1;
+        if(offline_count >200){
+            // this message can not send
             if(tox_get_friend_connection_status(my_tox,friend_num) != 1){
+                // target is offline
+                printf("TARGET IS OFFLINE\n");
                 printf("friend num %d\n",friend_num);
                 //close the relate socket
                 uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+                memset(uuid,'\0',UUID_LENGTH+1);
                 uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
                 uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
                 uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
@@ -455,54 +482,26 @@ void send_data_remote(){
                 uint8_t bin_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
                 hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,bin_str);
                 printf("TARGET ADDR BIN:%s\n",bin_str);
+                int sockfd = get_local_socks(msocks_list,uuid);
+                if(sockfd != 0)closeCSock(sockfd);
                 // free data
+                printf("free 1\n");
                 free(uuid);
+                printf("free 2\n");
                 free(cmd);
+                printf("free 3\n");
                 free(data);
+                printf("free 4\n");
                 free(length);
+                printf("free 5\n");
+                Dequeue(msg_task_queue);
+                printf("free 6\n");
             }
-            
-        }
-        if(retry_count >=5){
-            offline_count += 1;
-            if(offline_count >200){
-                // this message can not send
-                if(tox_get_friend_connection_status(my_tox,friend_num) != 1){
-                    // target is offline
-                    printf("TARGET IS OFFLINE\n");
-                    printf("friend num %d\n",friend_num);
-                    //close the relate socket
-                    uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
-                    uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
-                    uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
-                    uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
-                    unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
-                    printf("UUID:%s\n",uuid);
-                    uint8_t bin_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
-                    hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,bin_str);
-                    printf("TARGET ADDR BIN:%s\n",bin_str);
-                    int sockfd = get_local_socks(msocks_list,uuid);
-                    if(sockfd != 0)closeCSock(sockfd);
-                    // free data
-                    printf("free 1\n");
-                    free(uuid);
-                    printf("free 2\n");
-                    free(cmd);
-                    printf("free 3\n");
-                    free(data);
-                    printf("free 4\n");
-                    free(length);
-                    printf("free 5\n");
-                    Dequeue(msg_task_queue);
-                    printf("free 6\n");
-                }
-                offline_count = 0;
-            }
-        }else{
             offline_count = 0;
-            Dequeue(msg_task_queue);
         }
-        msg_task_flag = 0;
+    }else{
+        offline_count = 0;
+        Dequeue(msg_task_queue);
     }
 }
 
@@ -516,8 +515,10 @@ void send_data_remote(){
  */
 
 void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
-    const uint8_t *uuid = get_local_socks_uuid(msocks_list,sockfd);
-    const uint8_t *target_addr_bin = get_local_socks_addr_bin(msocks_list,sockfd);
+    uint8_t uuid[UUID_LENGTH+1] = {'\0'};
+    get_local_socks_uuid(msocks_list,sockfd,uuid);
+    uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE +1];
+    get_local_socks_addr_bin(msocks_list,sockfd, target_addr_bin);
     write_data_remote(uuid,target_addr_bin,NULL,data,length);
 }
 
@@ -590,22 +591,24 @@ void on_remote_create_sock_received(const uint8_t *target_addr_bin, const uint8_
 void *on_local_sock_connect(void *msockfd){
     uint32_t sockfd = *((uint32_t *)msockfd);
     printf("CONNECTED\n");
-    const uint8_t *target_addr_bin_temp = get_local_socks_addr_bin(msocks_list,sockfd);
+    uint8_t target_addr_bin_temp[TOX_FRIEND_ADDRESS_SIZE+1];
+    get_local_socks_addr_bin(msocks_list,sockfd,target_addr_bin_temp);
+    printf("CONNECTED 1\n");
     uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
     if(target_addr_bin_temp == NULL){
         printf("ERROR**********************\n");
     }
-        
+    printf("CONNECTED 2\n");
     uint8_t test[TOX_FRIEND_ADDRESS_SIZE*2+1];
     hex_bin_to_string(target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE,test);
-    bufcopy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
-    const uint8_t *uuid_temp = get_local_socks_uuid(msocks_list,sockfd);
-    uint8_t uuid[UUID_LENGTH+1];
-#ifdef _WIN32
-	bufcopy(uuid, uuid_temp, UUID_LENGTH);
-#else
-	strcpy(uuid, uuid_temp);
-#endif
+    printf("CONNECTED 3\n");
+    memcpy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
+    printf("CONNECTED 4\n");
+    uint8_t uuid_temp[UUID_LENGTH + 1] = {'\0'};
+    get_local_socks_uuid(msocks_list,sockfd,uuid_temp);
+    printf("CONNECTED 5\n");
+    uint8_t uuid[UUID_LENGTH+1] = {'\0'};
+	memcpy(uuid, uuid_temp, UUID_LENGTH);
     uint8_t buf[SOCK_BUF_SIZE+1];
     int length = 1;
     while(length > 0){
@@ -617,8 +620,11 @@ void *on_local_sock_connect(void *msockfd){
     }
     // read data error
     // close remote and local sock
+    
+    // block until all all the sock message send
     printf("OK1\n");
-    close_remote_socket(uuid,target_addr_bin);
+    if(get_local_socks(msocks_list, uuid) != 0)
+        close_remote_socket(uuid,target_addr_bin);
     printf("OK2\n");
     close_local_socks(msocks_list,sockfd);
     printf("OK3\n");
@@ -654,8 +660,6 @@ int main(int argc, char *argv[])
     // 虛擬參數
     
     // 初始化消息隊列
-    msg_task_flag = 0; // 1 when msg is not available
-    msg_rec_flag = 0; // 1 when rec_queue is not available
     msg_task_queue = createQueue(MAX_MSG_CACHE); // 远程操作消息队列
     
     // 開始tox線程
