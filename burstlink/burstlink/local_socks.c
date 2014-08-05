@@ -370,7 +370,7 @@ int is_local_socks_ready(local_socks_list *mlist, uint32_t sockfd){
 
 
 int debug_local_socket(local_socks_list *mlist){
-    return;
+    return 0;
     if(mlist == NULL || mlist->size == 0)return 0;
     if(mlist->size == 0)return 0;
     local_socks_node *temp = mlist->head;
