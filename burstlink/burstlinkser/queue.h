@@ -39,4 +39,5 @@ Queue * createQueue(int maxElements);
 void Dequeue(Queue *Q);
 MSGTask *front(Queue *Q);
 void Enqueue(Queue *Q,MSGTask *element);
+
 #endif

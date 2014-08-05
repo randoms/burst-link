@@ -6,6 +6,11 @@ pthread_mutex_t msg_task_lock = PTHREAD_MUTEX_INITIALIZER;
    a Queue according to it and returns a pointer to the Queue. */
 Queue * createQueue(int maxElements)
 {
+    // 设置成嵌套锁
+    pthread_mutexattr_t mattr;
+    pthread_mutexattr_init(&mattr);
+    pthread_mutexattr_settype(&mattr , PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutex_init(&msg_task_lock, &mattr);
     pthread_mutex_lock(&msg_task_lock );
     
     /* Create a Queue */

@@ -13,7 +13,7 @@ client.connect(PORT, HOST, function() {
         for(var i=0;i<1024;i++){
             buf[i] = i;
         }
-        client.write(buf);
+        //client.write(buf);
     },200);
 
 });
