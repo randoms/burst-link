@@ -528,6 +528,10 @@ void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin){
     write_data_remote(uuid,client_id_bin,"CLOSE_SOCK","",strlen(""));
 }
 
+void send_create_success(const uint8_t *uuid, const uint8_t *client_id_bin){
+    write_data_remote(uuid,client_id_bin,"CREATE_SOCK_SUCCESS","",strlen(""));
+}
+
 void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,const uint8_t *target_ip, uint32_t target_port){
     json_t *target_port_json = json_pack("i",target_port);
     json_t *target_ip_json = json_pack("s",target_ip);
@@ -575,6 +579,8 @@ void *on_local_sock_connect(void *msockfd){
     get_local_socks_uuid(msocks_list,sockfd,uuid_temp);
     uint8_t uuid[UUID_LENGTH+1] = {'\0'};
 	memcpy(uuid, uuid_temp, UUID_LENGTH);
+    // 发送端口创建成功
+    send_create_success(uuid,target_addr_bin);
     uint8_t buf[SOCK_BUF_SIZE+1];
     int length = 1;
     while(length > 0){
@@ -594,6 +600,7 @@ void *on_local_sock_connect(void *msockfd){
     free(msockfd);
 	return 0;
 }
+
 
 int main(int argc, char *argv[])
 {

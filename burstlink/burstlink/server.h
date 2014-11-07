@@ -54,4 +54,5 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
 void debug_data(const uint8_t *data,uint32_t length);
 void debug_msg_bin(uint8_t *msg_bin);
 int32_t closeCSock(uint32_t sockfd);
+void *on_remote_sock_created(void *msockfd);
 #endif

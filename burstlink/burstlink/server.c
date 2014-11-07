@@ -123,6 +123,11 @@ void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t l
                 int32_t sockfd = get_local_socks(msocks_list,uuid);
                 close_local_socks(msocks_list,sockfd);
             }
+            if(strcmp(cmd, "CREATE_SOCK_SUCCESS") == 0){
+                int32_t sockfd = get_local_socks(msocks_list,uuid);
+                pthread_t new_sock_thread;
+                pthread_create(&new_sock_thread, NULL, on_remote_sock_created, &sockfd);
+            }
         }
         
         // free data
@@ -535,6 +540,7 @@ void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin){
     write_data_remote(uuid,"CLOSE_SOCK","",strlen(""));
 }
 
+
 void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,const uint8_t *target_ip, uint32_t target_port){
     json_t *target_port_json = json_pack("i",target_port);
     json_t *target_ip_json = json_pack("s",target_ip);
@@ -551,21 +557,19 @@ void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,cons
     free(data_str);
 }
 
-void *on_local_sock_connect(void *msockfd){
+
+
+void *on_remote_sock_created(void *msockfd){
     uint32_t sockfd = *((uint32_t *)msockfd);
     uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
     hex_string_to_bin(target_addr_bin,target_id);
-    add_local_socks(msocks_list,sockfd,target_addr_bin,target_ip,target_port);
-    // create remote socket
     uint8_t uuid[UUID_LENGTH+1];
     get_local_socks_uuid(msocks_list,sockfd,uuid);
-    create_remote_socket(uuid,target_addr_bin,target_ip,target_port);
     uint8_t buf[SOCK_BUF_SIZE];
     int length = 1;
     while(length > 0){
         memset(buf,0,SOCK_BUF_SIZE);
         length = readCSock(sockfd,buf,SOCK_BUF_SIZE-1);
-        
         if(length > 0){
             on_local_data_received(buf,length,sockfd);
         }
@@ -575,12 +579,11 @@ void *on_local_sock_connect(void *msockfd){
     // close remote and local sock
     closeCSock(sockfd);
     if(get_local_socks(msocks_list, uuid) != 0)
-        close_remote_socket(uuid,target_addr_bin);
+        close_remote_socket(uuid,target_addr_bin);// 从本地发起的关闭
     close_local_socks(msocks_list,sockfd);
     free(target_addr_bin);
-	return NULL;
+    return NULL;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -676,9 +679,15 @@ int main(int argc, char *argv[])
 		}
 		else{
 			printf("accepted:%d\n", newsockfd);
-			// start a new thread
-			pthread_t new_sock_thread;
-			pthread_create(&new_sock_thread, NULL, on_local_sock_connect, &newsockfd);
+			// 发送创建远程端口指令
+            uint32_t sockfd = newsockfd;
+            uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
+            hex_string_to_bin(target_addr_bin,target_id);
+            add_local_socks(msocks_list,sockfd,target_addr_bin,target_ip,target_port);
+            // create remote socket
+            uint8_t uuid[UUID_LENGTH+1];
+            get_local_socks_uuid(msocks_list,sockfd,uuid);
+            create_remote_socket(uuid,target_addr_bin,target_ip,target_port);
 		}
     }
     

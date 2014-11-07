@@ -365,6 +365,9 @@ void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, con
 	else if (strcmp(cmd, "CLOSE_SOCK") == 0){
 		msg_bin[UUID_LENGTH] = 2;
 	}
+	else if (strcmp(cmd, "CREATE_SOCK_SUCCESS") == 0){
+        msg_bin[UUID_LENGTH] = 3;
+    }
 	else{
 		printf("INVAILD COMMAND\n");
 		exit(1);
@@ -424,6 +427,9 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
 		else if (msg_bin[UUID_LENGTH] == 2){
 			strcpy_s(cmd, 1024, "CLOSE_SOCK");
 		}
+		else if (msg_bin[UUID_LENGTH] == 3){
+            strcpy_s(cmd, 1024, "CREATE_SOCK_SUCCESS");
+        }
 		else{
 			strcpy_s(cmd, 1024, "UNKNOWN_CMD");
 		}
@@ -434,6 +440,9 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
 		else if (msg_bin[UUID_LENGTH] == 2){
 			strcpy(cmd, "CLOSE_SOCK");
 		}
+		else if (msg_bin[UUID_LENGTH] == 3){
+            strcpy(cmd, "CREATE_SOCK_SUCCESS");
+        }
 		else{
 			strcpy(cmd, "UNKNOWN_CMD");
 		}
