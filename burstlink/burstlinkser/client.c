@@ -19,7 +19,7 @@ Tox *my_tox;
 Queue *msg_task_queue; // 消息处队列
 Msg_listener_list *msg_listener_list = NULL;
 uint8_t MODE = 0; // 0 req mode 1,server mode
-
+uint8_t close_count;
 // 队列等待条件锁
 extern pthread_mutex_t msg_task_lock;
 pthread_cond_t msg_task_cond = PTHREAD_COND_INITIALIZER;
@@ -594,8 +594,11 @@ void *on_local_sock_connect(void *msockfd){
     // close remote and local sock
     
     // block until all all the sock message send
-    if(get_local_socks(msocks_list, uuid) != 0)
+    if(get_local_socks(msocks_list, uuid) != 0){
         close_remote_socket(uuid,target_addr_bin);
+        printf("close remote socket\n");
+    }
+        
     close_local_socks(msocks_list,sockfd);
     free(msockfd);
 	return 0;
