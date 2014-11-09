@@ -150,10 +150,11 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
 
 int close_local_socks(local_socks_list *mlist, uint32_t sockfd){
     pthread_mutex_lock(&msock_lock );
+	shutdown(sockfd, 2);
 #ifdef _WIN32
 	closesocket(sockfd);
 #else
-	shutdown(sockfd, 2);
+	close(sockfd);
 #endif
     if(mlist == NULL || mlist->size == 0){
         pthread_mutex_unlock(&msock_lock);

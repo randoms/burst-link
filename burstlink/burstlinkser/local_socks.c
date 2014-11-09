@@ -154,6 +154,7 @@ int close_local_socks(local_socks_list *mlist, uint32_t sockfd){
 	closesocket(sockfd);
 #else
 	shutdown(sockfd, 2);
+	close(sockfd);
 #endif
     if(mlist == NULL || mlist->size == 0){
         pthread_mutex_unlock(&msock_lock);
