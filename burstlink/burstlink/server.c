@@ -367,14 +367,6 @@ int32_t writeCSock(uint32_t sockfd, const uint8_t *buf, uint32_t length){
 #endif
 }
 
-int32_t closeCSock(uint32_t sockfd){
-#ifdef _WIN32
-    int res =  closesocket(sockfd);
-	return res;
-#else
-    return shutdown(sockfd,2);
-#endif
-}
 
 
 /**
@@ -581,16 +573,16 @@ void *on_remote_sock_created(void *msockfd){
     }
     // read data error
     // close remote and local sock
-    closeCSock(sockfd);
+	printf("uuid: %s\n", uuid);
+	printf("socketfd: %d\n", sockfd);
     if(uuid[0] == '\0'){
         exit(0);
     }
     
     if(get_local_socks(msocks_list, uuid) != 0){
         close_remote_socket(uuid,target_addr_bin);// 从本地发起的关闭
+		close_local_socks(msocks_list, sockfd);
     }
-        
-    close_local_socks(msocks_list,sockfd);
     free(target_addr_bin);
     free(msockfd);
     return NULL;
