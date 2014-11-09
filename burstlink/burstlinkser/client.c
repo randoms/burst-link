@@ -376,6 +376,7 @@ int32_t writeCSock(uint32_t sockfd, const uint8_t *buf, uint32_t length){
 
 int32_t closeCSock(uint32_t sockfd){
 #ifdef _WIN32
+	shutdown(sockfd, 2);
 	int res = closesocket(sockfd);
 	return res;
 #else
