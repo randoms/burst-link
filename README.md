@@ -1,6 +1,96 @@
 Burstlink
 ==========
 
+***BurstLink*** is a socket proxy. It can bind other computer's port to local port. You can directly access your local port to communicate with other computers. This software is based on [Tox](https://github.com/irungentoo/toxcore "toxcore") project
+
+So why it is useful?
+You can use it to play LAN games with your friends.
+SSH to your office computer from home, and many many things that used to be possible only in LANs.
+
+##Compile
+###Linux
+The following guide is based on ubuntu 14.04. You may have to adjust it to fit your own OS.
+
+First you have to compile and install toxcore. It is described in detail on tox main page. Tox https://github.com/irungentoo/toxcore
+
+Then you have to install jansson
+
+    wget http://www.digip.org/jansson/releases/jansson-2.6.tar.gz
+    tar -xzvf jansson-2.6.tar.gz
+    cd jansson-2.6/
+    ./configure
+    make
+    sudo make install
+    
+And then uuid-dev
+
+    sudo apt-get install uuid-dev
+
+Finally compile this program
+
+    git clone https://github.com/randoms/burst-link
+    cd burst-link/burstlink/
+    ./compile.sh
+
+The results are generated in burst-link/burstlink/Release/.
+burstlink is the client and burstlinkser is the server.
+
+###Windows
+clone this project
+
+    git clone https://github.com/randoms/burst-link
+    
+If you simply want to use it, you do not need to compile it. It is already compiled in burst-link/burstlink/Release/. burstlink.exe is the client and burstlinkser.exe is the server. Be careful that the .dll files in Release folder is also needed.
+
+How to compile
+open burstlink.sln in the burstlink folder with visual studio. You can compile it with visual studio.
+
+##Usage
+For example if computer B wants to connect to computer A's port 3128. But computer A and computer B are not in the same LAN.
+A is connected to the internet via a router.
+First run server program on computer A
+
+    burstlinkser
+    
+    terminal output would be
+    MYID:A5F437F9014941214300912F3E66CBB6F42B4CB0A354B187332552C7C500706C40C249A2823C
+
+record the long string after MYID:. This is the ID of computer A. We will use it later.
+
+run the following cmd on computer B
+
+    burstlink 9990 A5F437F9014941214300912F3E66CBB6F42B4CB0A354B187332552C7C500706C40C249A2823C 127.0.0.1 3128
+    
+the long string above is computer A's ID. 9990 is computer B's local port. 127.0.0.1 is the ip address computer B want to connect with via computer A. 3128 is the port computer B want to connect.
+
+    If connected successfully, terminal output would be
+    
+    TOXCORE:ONLINE
+    SERVER:LISTEN ON 9990
+    online
+    MESSAGE RECEIVED
+    HANDSHAKE RECEIVED
+    402
+    CONNECT:OK
+
+You can now connect to you local port 9990, it feels as if you have connected to computer A's port 3128. Be careful it may takes up to one minute to start a connection.
+
+Command formate
+
+    burstlink local_port target_id target_ip target_port
+    
+    local_port  local port
+    target_id   target computer's ID, the long string in terminal output
+    target_ip   the IP address you want target computer to connect with. If you just want to connect with target computer, then it would be 127.0.0.1 
+    target_port target port you want to connect
+    
+How this is achieved
+
+In fact this process is simple. We create a socket both on local computer and remote computer. The two socket comminute via tox. And it seems as if we have binded the remote computer's port to local port.
+    
+##Licence
+  You are free to do anything...  
+
 ***BurstLink*** 简单来说就是一个端口映射软件。它能够把任意远程电脑的端口映射到本地端口。这样你就可以通过直接连接本地端口来和远程的电脑通信。这是一个p2p软件所以连接速度要比vpn之类的快很多。这个软件是建立在[Tox](https://github.com/irungentoo/toxcore "toxcore")项目之上的。
 
 有什么用？
