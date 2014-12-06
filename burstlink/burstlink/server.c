@@ -464,6 +464,10 @@ void send_data_remote(){
             free(cmd);
             free(data);
             free(length);
+            printf("target is offline. ******************************************************\n");
+            printf("status %d\n", tox_get_friend_connection_status(my_tox,friend_num));
+            printf("friend num %d\n", friend_num);
+            //exit(1);
         }
     }
 }
@@ -498,6 +502,10 @@ void debug_data(const uint8_t *data,uint32_t length){
 void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
     uint8_t uuid[UUID_LENGTH+1];
     get_local_socks_uuid(msocks_list,sockfd,uuid);
+    if(uuid[0] == '\0'){
+        printf("on_local_data_received error\n");// Bug: this is still known
+        return;
+    }
     write_data_remote(uuid,NULL,data,length);
 }
 
@@ -532,6 +540,9 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
  */
 
 void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin){
+    if(uuid[0] == '\0'){
+        printf("close_remote_socket error\n");
+    }
     write_data_remote(uuid,"CLOSE_SOCK","",strlen(""));
 }
 
@@ -543,6 +554,10 @@ void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,cons
     json_object_set(data,"target_ip",target_ip_json);
     json_object_set(data,"target_port",target_port_json);
     uint8_t *data_str = json_dumps(data,JSON_INDENT(4));
+    if(uuid[0] == '\0'){
+        printf("create_remote_socket error\n");
+        exit(1);
+    }
     write_data_remote(uuid,"CREATE_SOCK",data_str,strlen(data_str));
     
     // release data
@@ -579,8 +594,6 @@ void *on_remote_sock_created(void *msockfd){
     
     if(get_local_socks(msocks_list, uuid) != 0){
         close_remote_socket(uuid,target_addr_bin);// 从本地发起的关闭
-		close_local_socks(msocks_list, sockfd);
-        
     }else{
         // closed by remote before create success send
         if(uuid[0] == '\0'){
@@ -588,6 +601,7 @@ void *on_remote_sock_created(void *msockfd){
             printf("closed by local before create socket received\n");
         }
     }
+    close_local_socks(msocks_list, sockfd);
     free(target_addr_bin);
     free(msockfd);
     return NULL;

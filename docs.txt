@@ -133,3 +133,9 @@ client side 100% CPU usage.
 when server side shutdown unexpectly
 
 fixed, this is due to send msg failed. add online status check after send msg failed.
+
+still have pending threads
+empty_response_error
+
+# client side pending threads
+# server side pthread blocks

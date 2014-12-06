@@ -526,7 +526,6 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
         // socket might be closed 
         printf("INVALID SOCKET, CLOSE IT\n");
 		printf("uuid:%s\n", uuid);
-		print_local_socks_list(msocks_list);
         close_remote_socket(uuid,client_id_bin);
     }
 }
