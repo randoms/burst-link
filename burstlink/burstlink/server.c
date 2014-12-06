@@ -439,31 +439,32 @@ void send_data_remote(){
     while(res <=0 && retry_count <5){
         res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
         retry_count += 1;
-        if(tox_get_friend_connection_status(my_tox,friend_num) != 1 && friend_num == -1){
-            printf("friend num %d\n",friend_num);
-            //close the relate socket
+    }
+    if(retry_count < 5){
+        Dequeue(msg_task_queue);
+        pthread_cond_broadcast(&msg_task_cond);
+    }else{
+        // check target online status
+        if(tox_get_friend_connection_status(my_tox,friend_num) != 1){
+            // target offline
+            Dequeue(msg_task_queue);
+            pthread_cond_broadcast(&msg_task_cond);
+            // unpack msg to get uuid
             uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
             memset(uuid,'\0',UUID_LENGTH+1);
             uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
             uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
             uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
             unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
-            printf("UUID:%s\n",uuid);
-            printf("message num:%d\n",msg_task_queue->size);
-            uint8_t bin_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
-            hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,bin_str);
-            printf("TARGET ADDR BIN:%s\n",bin_str);
-            // free data
+            // get socket fd by uuid
+            int32_t sockfd = get_local_socks(msocks_list,uuid);
+            // close socket
+            close_local_socks(msocks_list,sockfd);
             free(uuid);
             free(cmd);
             free(data);
             free(length);
-            exit(0);
         }
-    }
-    if(retry_count < 5){
-        Dequeue(msg_task_queue);
-        pthread_cond_broadcast(&msg_task_cond);
     }
 }
 
@@ -575,13 +576,17 @@ void *on_remote_sock_created(void *msockfd){
     // close remote and local sock
 	printf("uuid: %s\n", uuid);
 	printf("socketfd: %d\n", sockfd);
-    if(uuid[0] == '\0'){
-        exit(0);
-    }
     
     if(get_local_socks(msocks_list, uuid) != 0){
         close_remote_socket(uuid,target_addr_bin);// 从本地发起的关闭
 		close_local_socks(msocks_list, sockfd);
+        
+    }else{
+        // closed by remote before create success send
+        if(uuid[0] == '\0'){
+            //exit(0);// maybe local socket has been closed
+            printf("closed by local before create socket received\n");
+        }
     }
     free(target_addr_bin);
     free(msockfd);

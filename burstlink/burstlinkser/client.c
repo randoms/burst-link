@@ -399,10 +399,15 @@ int32_t closeCSock(uint32_t sockfd){
 *
 */
 void write_data_remote(const uint8_t *uuid, const uint8_t *target_addr_bin, const uint8_t* cmd, const uint8_t *data, const uint32_t length){
+    // check data vaild
+    if(target_addr_bin[0] == '\0'){
+        printf("error msg.\n");
+        exit(1);
+    }
+    
 	// pack msg to bin
 	uint8_t *msg_bin = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
 	pack_msg_bin(msg_bin, uuid, cmd, data, length);
-
 	// add msg to message queue
 	MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
 	uint8_t *mtarget_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
@@ -442,31 +447,32 @@ void send_data_remote(){
     while(res <=0 && retry_count <5){
         res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
         retry_count += 1;
-        if(tox_get_friend_connection_status(my_tox,friend_num) != 1 && friend_num == -1){
-            printf("friend num %d\n",friend_num);
-            //close the relate socket
+    }
+    if(retry_count < 5){
+        Dequeue(msg_task_queue);
+        pthread_cond_broadcast(&msg_task_cond);
+    }else{
+        // check target online status
+        if(tox_get_friend_connection_status(my_tox,friend_num) != 1){
+            // target offline
+            Dequeue(msg_task_queue);
+            pthread_cond_broadcast(&msg_task_cond);
+            // unpack msg to get uuid
             uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
             memset(uuid,'\0',UUID_LENGTH+1);
             uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
             uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
             uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
             unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
-            printf("UUID:%s\n",uuid);
-            printf("message num:%d\n",msg_task_queue->size);
-            uint8_t bin_str[TOX_FRIEND_ADDRESS_SIZE*2+1];
-            hex_bin_to_string(mTask->target_addr_bin,TOX_FRIEND_ADDRESS_SIZE,bin_str);
-            printf("TARGET ADDR BIN:%s\n",bin_str);
-            // free data
+            // get socket fd by uuid
+            int32_t sockfd = get_local_socks(msocks_list,uuid);
+            // close socket
+            close_local_socks(msocks_list,sockfd);
             free(uuid);
             free(cmd);
             free(data);
             free(length);
-            exit(0);
         }
-    }
-    if(retry_count < 5){
-        Dequeue(msg_task_queue);
-        pthread_cond_broadcast(&msg_task_cond);
     }
 }
 
@@ -491,6 +497,10 @@ void on_local_data_received(uint8_t *data, uint32_t length,uint32_t sockfd){
     if(target_addr_bin[0] == '\0'){
         closeCSock(sockfd);
         return;
+    }
+    if(uuid[0] == '\0'){
+        printf("on_local_data_received error\n");
+        exit(1);
     }
     write_data_remote(uuid,target_addr_bin,NULL,data,length);
 }
@@ -526,10 +536,18 @@ void on_remote_data_received(const uint8_t *uuid, const uint8_t *data, const uin
  */
 
 void close_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin){
+    if(uuid[0] == '\0'){
+        printf("close_remote_socket error\n");
+        exit(1);
+    }
     write_data_remote(uuid,client_id_bin,"CLOSE_SOCK","",strlen(""));
 }
 
 void send_create_success(const uint8_t *uuid, const uint8_t *client_id_bin){
+    if(uuid[0] == '\0'){
+        printf("send_create_success error\n");
+        exit(1);
+    }
     write_data_remote(uuid,client_id_bin,"CREATE_SOCK_SUCCESS","",strlen(""));
 }
 
@@ -540,6 +558,10 @@ void create_remote_socket(const uint8_t *uuid, const uint8_t *client_id_bin,cons
     json_object_set(data,"target_ip",target_ip_json);
     json_object_set(data,"target_port",target_port_json);
     uint8_t *data_str = json_dumps(data,JSON_INDENT(4));
+    if(uuid[0] == '\0'){
+        printf("create_remote_socket error \n");
+        exit(1);
+    }
     write_data_remote(uuid,client_id_bin,"CREATE_SOCK",data_str,strlen(data_str));
     
 }
@@ -569,7 +591,7 @@ void *on_local_sock_connect(void *msockfd){
     uint32_t sockfd = *((uint32_t *)msockfd);
     uint8_t target_addr_bin_temp[TOX_FRIEND_ADDRESS_SIZE+1];
     get_local_socks_addr_bin(msocks_list,sockfd,target_addr_bin_temp);
-    uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1];
+    uint8_t target_addr_bin[TOX_FRIEND_ADDRESS_SIZE+1] = {'\0'};
     if(target_addr_bin_temp == NULL){
         printf("ERROR**********************\n");
     }
@@ -578,6 +600,11 @@ void *on_local_sock_connect(void *msockfd){
     memcpy(target_addr_bin,target_addr_bin_temp,TOX_FRIEND_ADDRESS_SIZE);
     uint8_t uuid_temp[UUID_LENGTH + 1] = {'\0'};
     get_local_socks_uuid(msocks_list,sockfd,uuid_temp);
+    if(uuid_temp[0] == '\0'){
+        // closed before read.
+        printf("closed before read.\n");
+        return;
+    }
     uint8_t uuid[UUID_LENGTH+1] = {'\0'};
 	memcpy(uuid, uuid_temp, UUID_LENGTH);
     // 发送端口创建成功
@@ -663,7 +690,6 @@ int main(int argc, char *argv[])
 #else
 		usleep(1000000);
 #endif
-        
     }
     
     return 0; 

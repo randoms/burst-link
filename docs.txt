@@ -103,3 +103,33 @@ uuid 正常但是targetbin不正常是啥原因
 		问题确认，在由远端关闭端口的时候会出问题
 		难道是关闭了两次的原因?
 好像在由服务端关闭端口的时候会出现内存泄漏
+
+
+在看电影的时候快进会导致server端卡死
+    但是同时请求端也是没有响应了，本来关闭连接后请求端的线程应该会结束的，但是在快进的情况下没有结束线程
+还是会出现uuid是空的情况
+
+这两种情况好像会是同时发生的，需要再次确认
+出现uuid为空的时候客户端意外终端服务器就会出现100%的CPU占用
+可能的100%原因。现在的读取socket的策略是阻塞读取。
+so where socket error occors, it is no longer blocking. and the socket loop will occupy 100% cpu usage.
+and we can confirm this from the thread msg get from htop. only one thread takes 100% cpu usage, and after some time,
+only one thread left. That is the socket manage thread.
+
+Um, that's strange. The thread manage thread should't take 100% CPU, as I have a sleep func in its loop.
+
+# new issue
+server friend num -1, and target addressbin all 0.
+
+both server and clent encounter uuid 0 error. 
+
+client side.
+socket has been closed before remove send create socket success. maybe 304 cause it.
+
+server side still unknown
+maybe client side has send close commend before remove socket create success.
+
+client side 100% CPU usage.
+when server side shutdown unexpectly
+
+fixed, this is due to send msg failed. add online status check after send msg failed.
