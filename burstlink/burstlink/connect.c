@@ -11,7 +11,7 @@ int init_connect(Tox *m, const uint8_t *address_str, Msg_listener_list **msg_lis
         return 401;
     }
 	
-	uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2];
+	uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2 + 1];
     address_str_to_client_str(address_str,client_id_str);
     uint8_t client_addr_bin[TOX_FRIEND_ADDRESS_SIZE];
     hex_string_to_bin(client_addr_bin, address_str);
