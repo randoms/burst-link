@@ -18,7 +18,6 @@ Tox *my_tox;
 Queue *msg_task_queue; // 消息处队列
 Queue *msg_rec_queue; //需要传递给node端的信息
 Msg_listener_list *msg_listener_list = NULL;
-uint8_t MODE = 0; // 0 req mode 1,server mode
 uint8_t offline_count = 0;
 
 // 队列等待条件锁
@@ -51,106 +50,55 @@ void error(const char *msg)
     exit(1);
 }
 
-// typedef struct accept_req_params{
-//     Tox *m;
-//     const uint8_t *id;
-//     Msg_listener_list *msg_listener_list;
-//     uint32_t sockfd;
-//     
-// }accept_req_params;
-
-// void *accept_req_work(void *mparms){
-//     accept_req_params *parms = (accept_req_params *)mparms;
-//     accept_connect(parms->m,parms->id,parms->msg_listener_list,parms->sockfd);
-// }
-
-void friend_request(Tox *messenger, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *userdata) {
-    //接受請求
-//     printf("req received\n");
-//     uint8_t *str = (uint8_t *)malloc(sizeof(uint8_t)*(TOX_CLIENT_ID_SIZE*2+1));
-//     hex_bin_to_string(public_key,TOX_CLIENT_ID_SIZE,str);
-//     // start a new thread to init new connection
-//     
-//     pthread_t *accept_req_thread;
-//     accept_req_thread = (pthread_t *)malloc(sizeof(pthread_t));
-//     accept_req_params *req_parms = (accept_req_params *)malloc(sizeof(accept_req_params));
-//     req_parms->m = my_tox;
-//     req_parms->id = str;
-//     req_parms->msg_listener_list = msg_listener_list;
-//     req_parms->sockfd = local_socksfd;
-//     
-//     int iret1 = pthread_create( accept_req_thread, NULL,accept_req_work,req_parms);
-//     if(iret1){
-//         exit(EXIT_FAILURE);
-//     }else{
-// //         write_local_message(local_socksfd,"PROCESSING FRIEND REQ");
-//     }
-}
-
-void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t length, void *userdata) {
+void friend_message(Tox *m, int32_t friendnumber, const uint8_t *bin, uint16_t msglength, void *userdata) {
 	uint8_t client_id_bin[TOX_CLIENT_ID_SIZE+1];
     uint8_t client_id_str[TOX_CLIENT_ID_SIZE*2+1];
     tox_get_client_id(m,friendnumber,client_id_bin);
     hex_bin_to_string(client_id_bin,TOX_CLIENT_ID_SIZE,client_id_str);
     // 添加消息觸發器
     trigger_msg_listener(msg_listener_list,bin,client_id_str);
-    if(MODE == 1){
         
+    if(strcmp(bin,"HANDSHAKE") == 0){
+        printf("HANDSHAKE RECEIVED\n");
+        return;
     }
-    
-    // 请求者模式
-    if(MODE == 0){
         
-        if(strcmp(bin,"HANDSHAKE") == 0){
-            printf("HANDSHAKE RECEIVED\n");
-            return;
-        }
+    // parse message
+    uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH + 1);
+	uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*CMD_STR_LENGTH);
+    uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
+    uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
+    unpack_msg_bin(bin, uuid, cmd, data, length);
+	// print msg content
+	/*printf("uuid:%s\n", uuid);
+	printf("cmd:%s\n", cmd);
+	printf("data:%s\n", data);
+	printf("length:%d\n", *length);*/
         
-        // parse message
-        uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH);
-        uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
-        uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
-        uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
-        unpack_msg_bin(bin, uuid, cmd, data, length);
-        
-        if(strcmp(cmd,"UNKNOWN_CMD") == 0){
+    if(strcmp(cmd,"UNKNOWN_CMD") == 0){
             
-        }else if(strcmp(cmd,"RAW_DATA") == 0){
-            on_remote_data_received(uuid, data, *length, client_id_bin);
-        }else{
-            printf("CMD:%s\n",cmd);
-            if(strcmp(cmd,"CLOSE_SOCK") == 0){
-                int32_t sockfd = get_local_socks(msocks_list,uuid);
-                close_local_socks(msocks_list,sockfd);
-            }
-            if(strcmp(cmd, "CREATE_SOCK_SUCCESS") == 0){
-                int32_t sockfd = get_local_socks(msocks_list,uuid);
-                pthread_t new_sock_thread;
-                uint32_t *msockfd = malloc(sizeof(uint32_t));
-                *msockfd = sockfd;
-                pthread_create(&new_sock_thread, NULL, on_remote_sock_created, msockfd);
-            }
+    }else if(strcmp(cmd,"RAW_DATA") == 0){
+        on_remote_data_received(uuid, data, *length, client_id_bin);
+    }else{
+        printf("CMD:%s\n",cmd);
+        if(strcmp(cmd,"CLOSE_SOCK") == 0){
+            int32_t sockfd = get_local_socks(msocks_list,uuid);
+            close_local_socks(msocks_list,sockfd);
         }
-        
-        // free data
-        free(uuid);
-        free(cmd);
-        free(data);
-        free(length);
+        if(strcmp(cmd, "CREATE_SOCK_SUCCESS") == 0){
+            int32_t sockfd = get_local_socks(msocks_list,uuid);
+			pthread_t new_sock_thread;
+            uint32_t *msockfd = malloc(sizeof(uint32_t));
+			*msockfd = sockfd;
+            pthread_create(&new_sock_thread, NULL, on_remote_sock_created, (void *)msockfd);
+        }
     }
-}
-
-void write_file(Tox *messenger, int32_t friendnumber, uint8_t filenumber,const uint8_t *data, uint16_t length, void *userdata) {
-}
-
-void file_print_control(Tox *messenger, int friendnumber, uint8_t send_receive, uint8_t filenumber, uint8_t control_type, const uint8_t *data, uint16_t length, void *userdata) {
-}
-
-void file_request_accept(Tox *messenger, int friendnumber, uint8_t filenumber, uint64_t filesize,const uint8_t *filename, uint16_t filename_length, void *userdata) {
-}
-
-void on_connectionchange(Tox *m, int32_t friendnumber, uint8_t status, void *userdata){
-    
+        
+    // free data
+    free(uuid);
+    free(cmd);
+    free(data);
+    free(length);
 }
 
 
@@ -159,29 +107,14 @@ static Tox *init_tox()
     Tox *m = tox_new(1);
 
     if (m == NULL) {
-//         fprintf(stderr, "IPv6 didn't initialize, trying IPv4\n");
+        printf(stderr, "IPv6 didn't initialize, trying IPv4\n");
         m = tox_new(0);
     }
 
-    if (m ==NULL)
-//         fprintf(stderr, "Forcing IPv4 connection\n");
+    if (m == NULL)
+	printf(stderr, "Forcing IPv4 connection\n");
 
-    /* Callbacks */
-    tox_callback_connection_status(m, on_connectionchange, NULL);
-    //tox_callback_typing_change(m, on_typing_change, NULL);
-    tox_callback_friend_request(m, friend_request, NULL);
     tox_callback_friend_message(m, friend_message, NULL);
-    //tox_callback_name_change(m, on_nickchange, NULL);
-    //tox_callback_user_status(m, on_statuschange, NULL);
-    //tox_callback_status_message(m, on_statusmessagechange, NULL);
-    //tox_callback_friend_action(m, on_action, NULL);
-    //tox_callback_group_invite(m, on_groupinvite, NULL);
-    //tox_callback_group_message(m, on_groupmessage, NULL);
-    //tox_callback_group_action(m, on_groupaction, NULL);
-    //tox_callback_group_namelist_change(m, on_group_namelistchange, NULL);
-    tox_callback_file_send_request(m, file_request_accept, NULL);
-    tox_callback_file_control(m, file_print_control, NULL);
-    tox_callback_file_data(m, write_file, NULL);
 
     tox_set_name(m, MY_NAME, strlen(MY_NAME)); // Sets the username
     return m;
@@ -384,8 +317,18 @@ int32_t writeCSock(uint32_t sockfd, const uint8_t *buf, uint32_t length){
 void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *data, const uint32_t length){
     // pack msg to bin
     uint8_t *msg_bin = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
-    pack_msg_bin(msg_bin, uuid, cmd, data, length);
-    
+	pack_msg_bin(msg_bin, uuid, cmd, data, length);
+	uint8_t hight_byte = msg_bin[UUID_LENGTH + CMD_LENGTH];
+	uint8_t low_byte = msg_bin[UUID_LENGTH + CMD_LENGTH + 1];
+	uint16_t mlength = hight_byte * 256 + low_byte;
+    // print msg content
+	/*printf("uuid:%s\n", uuid);
+	printf("cmd:%s\n", cmd);
+	printf("data:%s\n", data);
+	printf("length:%d\n", length);
+	printf("afterLength:%d\n", mlength);*/
+	// unpack msg bin
+	//debug_msg_bin(msg_bin);
     // add msg to message queue
     MSGTask *newTask = (MSGTask *)malloc(sizeof(MSGTask));
     uint8_t *target_addr_bin = (uint8_t *)malloc(sizeof(uint8_t)*TOX_FRIEND_ADDRESS_SIZE);
@@ -411,19 +354,24 @@ void write_data_remote(const uint8_t *uuid, const uint8_t* cmd, const uint8_t *d
 
 
 
-/*
-void debug_msg_bin(uint8_t *msg_bin){
-    if(msg_bin[UUID_LENGTH] != 0)return;
-    uint8_t hight_byte = msg_bin[UUID_LENGTH+CMD_LENGTH];
-    uint8_t low_byte = msg_bin[UUID_LENGTH+CMD_LENGTH + 1];
-    uint32_t length = hight_byte*256 +low_byte;
-    uint8_t data[length];
-    int i=0;
-    for(i=0;i<length;i++){
-        data[i] = msg_bin[i + UUID_LENGTH + CMD_LENGTH + MESSAGE_LENGTH_BYTE];
-    }
-    debug_data(data,length);
-}*/
+
+void debug_msg_bin(uint8_t *msg){
+	uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH + 1);
+	memset(uuid, '\0', UUID_LENGTH + 1);
+	uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t) * CMD_STR_LENGTH);
+	uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
+	uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
+	unpack_msg_bin(msg, uuid, cmd, data, length);
+	// print msg content
+	printf("uuid:%s\n", uuid);
+	printf("cmd:%s\n", cmd);
+	printf("data:%s\n", data);
+	printf("length:%d\n", *length);
+	free(uuid);
+	free(cmd);
+	free(data);
+	free(length);
+}
 
 /**
  * read message from remote message queue, and send to remote
@@ -435,7 +383,7 @@ void send_data_remote(){
     int friend_num = tox_get_friend_number(my_tox,mTask->target_addr_bin);
     int res = -1;
     int retry_count = 0;
-    //debug_msg_bin(bin);
+    //debug_msg_bin(mTask->msg);
     while(res <=0 && retry_count <5){
         res = tox_send_message(my_tox,friend_num,mTask->msg,MY_MESSAGE_LENGTH);
         retry_count += 1;
@@ -452,7 +400,7 @@ void send_data_remote(){
             // unpack msg to get uuid
             uint8_t *uuid = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
             memset(uuid,'\0',UUID_LENGTH+1);
-            uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*128);
+			uint8_t *cmd = (uint8_t *)malloc(sizeof(uint8_t)*CMD_STR_LENGTH);
             uint8_t *data = (uint8_t *)malloc(sizeof(uint8_t)*MY_MESSAGE_LENGTH);
             uint32_t *length = (uint32_t *)malloc(sizeof(uint32_t));
             unpack_msg_bin(mTask->msg, uuid, cmd, data, length);
@@ -634,12 +582,6 @@ int main(int argc, char *argv[])
 		target_id = "3E567CBCE8DA8A18ED3C30127ADB61D78AFA2D01B5CD12425C110E84F23AC365144CE2807378";
 		target_ip = "127.0.0.1";
 		target_port = 22;
-        /*target_id = NULL;
-        uint8_t my_address_bin[TOX_FRIEND_ADDRESS_SIZE];
-        uint8_t my_address_str[TOX_FRIEND_ADDRESS_SIZE*2];
-        tox_get_address(my_tox,my_address_bin);
-        hex_bin_to_string(my_address_bin,TOX_FRIEND_ADDRESS_SIZE,my_address_str);
-        printf("MYID:%s\n",my_address_str);*/
     }
     // 虛擬參數
     
@@ -667,22 +609,14 @@ int main(int argc, char *argv[])
     }
     printf("TOXCORE:ONLINE\n");
     printf("SERVER:LISTEN ON %d\n",local_port);
-    
-    // 開始準備連接
-    if(target_id != NULL){
-        // 進入請求者模式
-        int res = init_connect(my_tox,target_id,&msg_listener_list);
-        if(res == 402){
-            printf("CONNECT:OK\n");
-        }
-        else{
-            printf("CONNECT:ERROR\n");
-        }
-    }else{
-        // 進入服務者模式
-        MODE = 1;
+    // 進入請求者模式
+    int res = init_connect(my_tox,target_id,&msg_listener_list);
+    if(res == 402){
+        printf("CONNECT:OK\n");
     }
-
+    else{
+        printf("CONNECT:ERROR\n");
+    }
     
 
     // client mode

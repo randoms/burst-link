@@ -388,26 +388,23 @@ void pack_msg_bin(uint8_t *msg_bin, const uint8_t *uuid, const uint8_t *cmd, con
 
 void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t *data, uint32_t *length){
 	uint32_t i = 0;
-
 	// get uuid bytes
 	memset(uuid, 0, UUID_LENGTH);
-	memset(cmd, 0, 32);
+	memset(cmd, 0, CMD_STR_LENGTH);
 	memset(data, 0, SOCK_BUF_SIZE);
 	for (i = 0; i<UUID_LENGTH; i++){
 		uuid[i] = msg_bin[i];
 	}
 	uuid[UUID_LENGTH] = '\0';
-
 	// get data length
 	uint8_t hight_byte = msg_bin[UUID_LENGTH + CMD_LENGTH];
 	uint8_t low_byte = msg_bin[UUID_LENGTH + CMD_LENGTH + 1];
 	*length = hight_byte * 256 + low_byte;
-
 	//get cmd data byte
 	if (msg_bin[UUID_LENGTH] == 0){
 		// raw data type
 #ifdef _WIN32
-		strcpy_s(cmd, 1024, "RAW_DATA");
+		strcpy_s(cmd, CMD_STR_LENGTH, "RAW_DATA");
 #else
 		strcpy(cmd, "RAW_DATA");
 #endif
@@ -422,16 +419,16 @@ void unpack_msg_bin(const uint8_t *msg_bin, uint8_t *uuid, uint8_t *cmd, uint8_t
 		// cmd received
 #ifdef _WIN32
 		if (msg_bin[UUID_LENGTH] == 1){
-			strcpy_s(cmd, 1024, "CREATE_SOCK");
+			strcpy_s(cmd, CMD_STR_LENGTH, "CREATE_SOCK");
 		}
 		else if (msg_bin[UUID_LENGTH] == 2){
-			strcpy_s(cmd, 1024, "CLOSE_SOCK");
+			strcpy_s(cmd, CMD_STR_LENGTH, "CLOSE_SOCK");
 		}
 		else if (msg_bin[UUID_LENGTH] == 3){
-            strcpy_s(cmd, 1024, "CREATE_SOCK_SUCCESS");
+			strcpy_s(cmd, CMD_STR_LENGTH, "CREATE_SOCK_SUCCESS");
         }
 		else{
-			strcpy_s(cmd, 1024, "UNKNOWN_CMD");
+			strcpy_s(cmd, CMD_STR_LENGTH, "UNKNOWN_CMD");
 		}
 #else
 		if (msg_bin[UUID_LENGTH] == 1){

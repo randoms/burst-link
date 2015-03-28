@@ -121,13 +121,15 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     pthread_mutex_lock(&msock_lock );
     
     local_socks *mlocal_socks = (local_socks *)malloc(sizeof(local_socks));
-    uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
-	memset(uuid_str, '\0', UUID_LENGTH + 1);
+    
     uuid_t muuid;
 #ifdef _WIN32
+	uint8_t *uuid_str = NULL;
 	UuidCreate(&muuid);
 	UuidToStringA(&muuid, (RPC_CSTR *)&uuid_str);
 #else
+	uint8_t *uuid_str = (uint8_t *)malloc(sizeof(uint8_t)*UUID_LENGTH+1);
+	memset(uuid_str, '\0', UUID_LENGTH + 1);
 	uuid_generate(muuid);
 	uuid_unparse(muuid, uuid_str);
 #endif
@@ -142,7 +144,11 @@ void add_local_socks(local_socks_list *mlist, uint32_t sockfd, const uint8_t *ta
     mlocal_socks->target_ip = mip;
     mlocal_socks->target_port = target_port;
     add_local_socks_list(mlist,mlocal_socks);
-    free(uuid_str);
+#ifdef _WIN32
+	RpcStringFreeA(&uuid_str);
+#else
+	free(uuid_str);
+#endif
     free(mlocal_socks);
     //debug_local_socket(mlist);
     pthread_mutex_unlock(&msock_lock);
