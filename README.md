@@ -11,7 +11,9 @@ SSH to your office computer from home, and many many things that used to be poss
 ###Linux
 The following guide is based on ubuntu 14.04. You may have to adjust it to fit your own OS.
 
-First you have to compile and install toxcore. It is described in detail on tox main page. Tox https://github.com/irungentoo/toxcore
+First you have to compile and install toxcore. It is described in detail on tox main page. Tox https://github.com/irungentoo/toxcore  
+**Be careful, toxcore has changed a lot. This program only works with old versions of toxcore. You have to run the following command after cloning toxcore.**
+``` git checkout 909db029412ddbd499281711a9cd46c3df4fe5a0```
 
 Then you have to install jansson
 
@@ -104,6 +106,8 @@ In fact this process is simple. We create a socket both on local computer and re
 下面以ubuntu为例，其他的系统可以参照调整。
 
 首先要编译安装toxcore,toxcore的安装方法在其项目主页上很详细。主页地址 https://github.com/irungentoo/toxcore
+**注意：toxcore经过这么长时间已经变化了太多，这个软件只能使用特定版本的toxcore。在clone完toxcore后请执行以下代码。**
+``` git checkout 909db029412ddbd499281711a9cd46c3df4fe5a0```
 
 接着要安装jansson
 
