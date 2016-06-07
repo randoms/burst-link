@@ -6,7 +6,7 @@ Burstlink
 So why it is useful?
 You can use it to play LAN games with your friends.
 SSH to your office computer from home, and many many things that used to be possible only in LANs.
-Burstlink is unstable right now, and cannot be used in production envirment. If you want a stable version, [SharpLink](https://github.com/randoms/SharpLink) is a better choice. It's almost the same with burstlink but scripted in C#.
+Burstlink is unstable right now, and cannot be used in production environment. If you want a stable version, [SharpLink](https://github.com/randoms/SharpLink) is a better choice. It's almost the same with burstlink but scripted in C#.
 ##Compile
 ###Linux
 The following guide is based on ubuntu 14.04. You may have to adjust it to fit your own OS.
